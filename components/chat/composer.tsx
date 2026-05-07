@@ -2,10 +2,12 @@
 
 import {
   forwardRef,
+  useEffect,
   useImperativeHandle,
   useRef,
   useState,
   type ChangeEvent,
+  type DragEvent,
   type KeyboardEvent,
 } from "react";
 import Image from "next/image";
@@ -16,7 +18,7 @@ import {
   CancelCircleIcon,
   Pdf01Icon,
   Image01Icon,
-  StopIcon,
+  StopCircleIcon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { toast } from "sonner";
@@ -168,12 +170,11 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
     }
   };
 
-  const handleFilesPicked = async (e: ChangeEvent<HTMLInputElement>) => {
-    const picked = e.target.files;
-    if (!picked || picked.length === 0) return;
-
+  const ingestFiles = async (incoming: File[] | FileList) => {
+    const list = Array.from(incoming);
+    if (list.length === 0) return;
     const newFiles: AttachedFile[] = [];
-    for (const file of Array.from(picked)) {
+    for (const file of list) {
       if (!ACCEPTED_FILE_TYPES.includes(file.type)) {
         setError(`Unsupported file type: ${file.type || file.name}`);
         continue;
@@ -188,8 +189,60 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
       setError(null);
       setFiles((prev) => [...prev, ...newFiles]);
     }
+  };
+
+  const handleFilesPicked = async (e: ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files) return;
+    await ingestFiles(e.target.files);
     e.target.value = "";
   };
+
+  // Drag & drop. We use a counter to survive re-fires from child elements.
+  const [isDragging, setIsDragging] = useState(false);
+  const dragDepth = useRef(0);
+
+  const handleDragEnter = (e: DragEvent<HTMLFormElement>) => {
+    if (!e.dataTransfer?.types.includes("Files")) return;
+    e.preventDefault();
+    dragDepth.current += 1;
+    setIsDragging(true);
+  };
+  const handleDragOver = (e: DragEvent<HTMLFormElement>) => {
+    if (!e.dataTransfer?.types.includes("Files")) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "copy";
+  };
+  const handleDragLeave = (e: DragEvent<HTMLFormElement>) => {
+    if (!e.dataTransfer?.types.includes("Files")) return;
+    dragDepth.current = Math.max(0, dragDepth.current - 1);
+    if (dragDepth.current === 0) setIsDragging(false);
+  };
+  const handleDrop = async (e: DragEvent<HTMLFormElement>) => {
+    if (!e.dataTransfer?.files || e.dataTransfer.files.length === 0) return;
+    e.preventDefault();
+    dragDepth.current = 0;
+    setIsDragging(false);
+    await ingestFiles(e.dataTransfer.files);
+  };
+
+  // Block the browser default of navigating to a file when the user misses
+  // the drop zone (otherwise dropping anywhere else opens the image).
+  useEffect(() => {
+    const swallow = (e: Event) => {
+      if (
+        e instanceof DragEvent &&
+        e.dataTransfer?.types.includes("Files")
+      ) {
+        e.preventDefault();
+      }
+    };
+    window.addEventListener("dragover", swallow);
+    window.addEventListener("drop", swallow);
+    return () => {
+      window.removeEventListener("dragover", swallow);
+      window.removeEventListener("drop", swallow);
+    };
+  }, []);
 
   const removeFile = (id: string) =>
     setFiles((prev) => prev.filter((f) => f.id !== id));
@@ -202,12 +255,33 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
         e.preventDefault();
         submit();
       }}
+      onDragEnter={handleDragEnter}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
       className={cn(
-        "w-full overflow-hidden rounded-3xl border border-border/60 bg-card/60 shadow-xl",
+        "relative w-full overflow-hidden rounded-3xl border border-border/60 bg-card/60 shadow-xl",
         "focus-within:border-border focus-within:bg-card/90 transition-colors",
+        isDragging && "border-accent-brand bg-card/90",
         className
       )}
     >
+      {isDragging && (
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center rounded-3xl bg-accent-brand/10 backdrop-blur-sm"
+        >
+          <div className="flex items-center gap-2 rounded-full border border-accent-brand/40 bg-card/90 px-4 py-1.5 text-sm font-medium text-foreground">
+            <HugeiconsIcon
+              icon={Image01Icon}
+              size={16}
+              strokeWidth={1.75}
+              className="text-accent-brand"
+            />
+            Drop to attach
+          </div>
+        </div>
+      )}
       <input
         ref={fileInputRef}
         type="file"
@@ -290,7 +364,7 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
               className="size-8 rounded-md"
               aria-label="Stop generating"
             >
-              <HugeiconsIcon icon={StopIcon} size={16} strokeWidth={2} />
+              <HugeiconsIcon icon={StopCircleIcon} size={16} strokeWidth={2} />
             </Button>
           ) : (
             <Button
