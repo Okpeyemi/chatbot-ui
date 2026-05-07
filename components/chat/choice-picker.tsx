@@ -29,28 +29,45 @@ export function ChoicePicker({
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      // Don't intercept while the user is typing in the textarea below.
       const target = e.target as HTMLElement | null;
-      const isTyping =
-        target?.tagName === "TEXTAREA" ||
-        target?.tagName === "INPUT" ||
-        target?.isContentEditable;
+      const isTextarea = target?.tagName === "TEXTAREA";
+      const isInput = target?.tagName === "INPUT";
+      const isEditable = !!target?.isContentEditable;
+      const textareaEmpty =
+        isTextarea && (target as HTMLTextAreaElement).value === "";
+
       if (e.key === "Escape") {
+        e.preventDefault();
         onSkip();
         return;
       }
-      if (isTyping) return;
 
-      if (e.key === "ArrowDown") {
+      // Modifier keys (Cmd/Ctrl/Alt) shouldn't trigger the picker.
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+
+      if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+        // Let cursor movement win when the user is editing actual text.
+        if (isTextarea && !textareaEmpty) return;
+        if (isInput || isEditable) return;
         e.preventDefault();
-        setActive((i) => (i + 1) % total);
-      } else if (e.key === "ArrowUp") {
-        e.preventDefault();
-        setActive((i) => (i - 1 + total) % total);
-      } else if (e.key === "Enter") {
+        setActive((i) =>
+          e.key === "ArrowDown" ? (i + 1) % total : (i - 1 + total) % total
+        );
+        return;
+      }
+
+      if (e.key === "Enter") {
+        // If the user typed something, Enter belongs to the composer (sends).
+        if (isTextarea && !textareaEmpty) return;
+        if (isInput || isEditable) return;
         e.preventDefault();
         onSelect(options[active]);
-      } else if (/^[1-9]$/.test(e.key)) {
+        return;
+      }
+
+      if (/^[1-9]$/.test(e.key)) {
+        // Don't hijack number keys while the user is typing.
+        if (isTextarea || isInput || isEditable) return;
         const idx = parseInt(e.key, 10) - 1;
         if (idx < total) {
           e.preventDefault();
