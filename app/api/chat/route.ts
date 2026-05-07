@@ -14,6 +14,7 @@ type ChatRequestBody = {
   messages: UIMessage[];
   modelId?: string;
   system?: string;
+  memories?: string[];
 };
 
 export async function POST(req: Request) {
@@ -25,7 +26,7 @@ export async function POST(req: Request) {
     return new Response("Invalid JSON body", { status: 400 });
   }
 
-  const { messages, modelId = DEFAULT_MODEL_ID, system } = body;
+  const { messages, modelId = DEFAULT_MODEL_ID, system, memories } = body;
 
   if (!Array.isArray(messages)) {
     return new Response(
@@ -44,21 +45,36 @@ export async function POST(req: Request) {
 
   const modelMessages = await convertToModelMessages(messages);
 
+  const baseSystem = [
+    "You are a helpful, concise assistant running inside an open-source chatbot UI.",
+    "Use Markdown for code, lists, and formatting.",
+    "",
+    "TOOLS:",
+    "- `presentChoices` — when you need a precise answer from a small set of alternatives (2 to 9 short options), call this tool instead of asking with free-form text. Provide a clear `title` and short `options`. Set `allowOther` to true unless the answer must be one of the listed options.",
+    "- `rememberFact` — persist a SHORT, durable fact about the user (preferences, role, recurring context). Don't store ephemeral or sensitive info. Use sparingly: only when the user clearly states something worth remembering across conversations.",
+    "- `now` — current date/time in a given IANA timezone. Call this whenever the answer depends on the current moment.",
+    "- `calculator` — evaluate any non-trivial arithmetic / unit conversion deterministically (don't compute manually).",
+    "- `wikipedia` — encyclopaedic lookups (definitions, history, biographies). Prefer this over `webSearch` when the answer is encyclopaedic.",
+    "- `webSearch` — current events, prices, news, recent data, anything past your training cutoff. Use focused queries.",
+    "- `webFetch` — after `webSearch`, read a specific result URL in detail. Cite the source URL in your final answer.",
+    "- `generateImage` — generate an image when the user explicitly asks for one. The UI renders the image inline.",
+    "- `runCode` — execute Python in a sandbox for data crunching, plotting, verifying logic. Each call is stateless.",
+    "",
+    "When you use external tools, summarise what you found and cite the URLs you relied on.",
+  ].join("\n");
+
+  const memoryContext =
+    memories && memories.length > 0
+      ? [
+          "",
+          "MEMORIES — durable facts the user has previously shared. Treat these as background context; don't repeat them back unless they're directly relevant.",
+          ...memories.map((m) => `- ${m}`),
+        ].join("\n")
+      : "";
+
   const result = streamText({
     model,
-    system:
-      system ??
-      [
-        "You are a helpful, concise assistant running inside an open-source chatbot UI.",
-        "Use Markdown for code, lists, and formatting.",
-        "",
-        "TOOLS:",
-        "- `presentChoices` — when you need a precise answer from a small set of alternatives (2 to 9 short options), call this tool instead of asking with free-form text. Provide a clear `title` and short `options`. Set `allowOther` to true unless the answer must be one of the listed options.",
-        "- `webSearch` — call this whenever the user asks about current events, recent data, prices, news, or anything that may have changed since your training cutoff. Prefer focused, specific queries.",
-        "- `webFetch` — after `webSearch`, call this to read a specific result URL in detail. Cite the source URL in your final answer.",
-        "",
-        "When you use the web tools, summarise what you found and cite the URLs you relied on.",
-      ].join("\n"),
+    system: (system ?? baseSystem) + memoryContext,
     messages: modelMessages,
     tools,
     // Allow the model to chain tool calls (search → fetch → answer) before

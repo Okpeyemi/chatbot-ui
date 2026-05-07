@@ -14,6 +14,7 @@ import {
   deriveTitle,
   useConversationsStore,
 } from "@/lib/conversations-store";
+import { useMemoryStore } from "@/lib/memory-store";
 
 type ChatContainerProps = {
   initialChatId?: string;
@@ -29,6 +30,10 @@ export function ChatContainer({ initialChatId }: ChatContainerProps) {
   const upsertConversation = useConversationsStore(
     (s) => s.upsertConversation
   );
+
+  const memories = useMemoryStore((s) => s.memories);
+  const addMemory = useMemoryStore((s) => s.addMemory);
+  const memoryTexts = useMemo(() => memories.map((m) => m.text), [memories]);
 
   const [modelId, setModelId] = useState(
     stored?.modelId ?? DEFAULT_MODEL_ID
@@ -122,13 +127,36 @@ export function ChatContainer({ initialChatId }: ChatContainerProps) {
     // history and the assistant can react to it.
     sendMessage(
       { role: "user", parts: [{ type: "text", text: choice }] },
-      { body: { modelId } }
+      { body: { modelId, memories: memoryTexts } }
     );
   };
 
   const handleChoiceSkip = () => {
     resolveChoice(null);
   };
+
+  // Auto-resolve `rememberFact` tool calls: write the fact to the local memory
+  // store, then mark the tool output so the model knows the fact landed.
+  useEffect(() => {
+    const last = [...messages].reverse().find((m) => m.role === "assistant");
+    if (!last) return;
+    for (const part of last.parts) {
+      if (
+        part.type === "tool-rememberFact" &&
+        part.state === "input-available"
+      ) {
+        const input = part.input as { fact?: string } | undefined;
+        const fact = input?.fact;
+        if (!fact) continue;
+        const stored = addMemory(fact);
+        addToolOutput({
+          tool: "rememberFact",
+          toolCallId: part.toolCallId,
+          output: { saved: true, id: stored.id, fact: stored.text },
+        });
+      }
+    }
+  }, [messages, addMemory, addToolOutput]);
 
   const promoteUrl = () => {
     if (hasUrl) return;
@@ -174,7 +202,7 @@ export function ChatContainer({ initialChatId }: ChatContainerProps) {
       title: stored?.title ?? titleFromMessage ?? "New chat",
     });
 
-    sendMessage({ role: "user", parts: userParts }, { body: { modelId } });
+    sendMessage({ role: "user", parts: userParts }, { body: { modelId, memories: memoryTexts } });
   };
 
   // Auto-derive the title from the first assistant exchange if the user
@@ -228,7 +256,7 @@ export function ChatContainer({ initialChatId }: ChatContainerProps) {
       modelId={modelId}
       onModelChange={setModelId}
       onSubmit={handleSubmit}
-      onRegenerate={() => regenerate({ body: { modelId } })}
+      onRegenerate={() => regenerate({ body: { modelId, memories: memoryTexts } })}
       pendingChoice={pendingChoice}
       onChoiceSelect={handleChoiceSelect}
       onChoiceSkip={handleChoiceSkip}

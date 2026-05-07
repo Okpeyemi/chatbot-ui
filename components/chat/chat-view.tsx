@@ -86,7 +86,13 @@ export function ChatView({
                   }
                   if (
                     part.type === "tool-webSearch" ||
-                    part.type === "tool-webFetch"
+                    part.type === "tool-webFetch" ||
+                    part.type === "tool-now" ||
+                    part.type === "tool-calculator" ||
+                    part.type === "tool-wikipedia" ||
+                    part.type === "tool-generateImage" ||
+                    part.type === "tool-runCode" ||
+                    part.type === "tool-rememberFact"
                   ) {
                     return <ToolTrace key={key} part={part} />;
                   }
