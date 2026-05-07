@@ -71,10 +71,38 @@ export function ChatContainer({ initialChatId }: ChatContainerProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hasHydrated]);
 
-  const { messages, sendMessage, status, error, regenerate, addToolOutput } =
-    useChat({
-      chat,
+  const {
+    messages,
+    sendMessage,
+    setMessages,
+    status,
+    error,
+    regenerate,
+    addToolOutput,
+  } = useChat({
+    chat,
+  });
+
+  const handleEditMessage = (messageId: string, newText: string) => {
+    setMessages((curr) =>
+      curr.map((m) => {
+        if (m.id !== messageId) return m;
+        // Replace the message's text part(s) in-place; preserve any file or
+        // other parts the user attached.
+        const hadText = m.parts.some((p) => p.type === "text");
+        const nextParts = hadText
+          ? m.parts.map((p) =>
+              p.type === "text" ? { ...p, text: newText } : p
+            )
+          : [{ type: "text" as const, text: newText }, ...m.parts];
+        return { ...m, parts: nextParts };
+      })
+    );
+    regenerate({
+      messageId,
+      body: { modelId, memories: memoryTexts },
     });
+  };
 
   // Detect a pending `presentChoices` tool call in the most recent assistant
   // message that hasn't been answered yet.
@@ -257,6 +285,7 @@ export function ChatContainer({ initialChatId }: ChatContainerProps) {
       onModelChange={setModelId}
       onSubmit={handleSubmit}
       onRegenerate={() => regenerate({ body: { modelId, memories: memoryTexts } })}
+      onEditMessage={handleEditMessage}
       pendingChoice={pendingChoice}
       onChoiceSelect={handleChoiceSelect}
       onChoiceSkip={handleChoiceSkip}

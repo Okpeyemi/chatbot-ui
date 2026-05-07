@@ -6,6 +6,7 @@ import {
   Copy01Icon,
   CopyCheckIcon,
   RefreshIcon,
+  PencilEdit02Icon,
 } from "@hugeicons/core-free-icons";
 import {
   Tooltip,
@@ -24,14 +25,20 @@ function getMessageText(message: UIMessage): string {
 
 type MessageActionsProps = {
   message: UIMessage;
-  canRegenerate: boolean;
+  canRegenerate?: boolean;
   onRegenerate?: () => void;
+  canEdit?: boolean;
+  onEdit?: () => void;
+  align?: "start" | "end";
 };
 
 export function MessageActions({
   message,
   canRegenerate,
   onRegenerate,
+  canEdit,
+  onEdit,
+  align = "start",
 }: MessageActionsProps) {
   const [copied, setCopied] = useState(false);
 
@@ -48,12 +55,20 @@ export function MessageActions({
   };
 
   return (
-    <div className="flex items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
+    <div
+      className={cn(
+        "flex items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100",
+        align === "end" && "justify-end"
+      )}
+    >
       <ActionButton
         label={copied ? "Copied!" : "Copy"}
         onClick={handleCopy}
         icon={copied ? CopyCheckIcon : Copy01Icon}
       />
+      {canEdit && onEdit && (
+        <ActionButton label="Edit" onClick={onEdit} icon={PencilEdit02Icon} />
+      )}
       {canRegenerate && onRegenerate && (
         <ActionButton
           label="Regenerate"

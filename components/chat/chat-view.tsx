@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import {
   Conversation,
   ConversationContent,
@@ -15,6 +16,8 @@ import Image from "next/image";
 import { Composer, type SubmitPayload } from "@/components/chat/composer";
 import { ChoicePicker } from "@/components/chat/choice-picker";
 import { ToolTrace } from "@/components/chat/tool-trace";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
 import { Spinner } from "@/components/ui/spinner";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Pdf01Icon } from "@hugeicons/core-free-icons";
@@ -34,10 +37,18 @@ type ChatViewProps = {
   onModelChange: (id: string) => void;
   onSubmit: (payload: SubmitPayload) => void;
   onRegenerate?: () => void;
+  onEditMessage?: (messageId: string, newText: string) => void;
   pendingChoice?: PendingChoice | null;
   onChoiceSelect?: (choice: string) => void;
   onChoiceSkip?: () => void;
 };
+
+function getMessageText(message: UIMessage): string {
+  return message.parts
+    .filter((p): p is { type: "text"; text: string } => p.type === "text")
+    .map((p) => p.text)
+    .join("\n\n");
+}
 
 export function ChatView({
   messages,
@@ -46,6 +57,7 @@ export function ChatView({
   onModelChange,
   onSubmit,
   onRegenerate,
+  onEditMessage,
   pendingChoice,
   onChoiceSelect,
   onChoiceSkip,
@@ -54,13 +66,34 @@ export function ChatView({
   const lastAssistantId = [...messages]
     .reverse()
     .find((m) => m.role === "assistant")?.id;
+  const [editingId, setEditingId] = useState<string | null>(null);
+
+  // If the message being edited gets removed (e.g. truncated by regenerate),
+  // exit edit mode.
+  useEffect(() => {
+    if (editingId && !messages.some((m) => m.id === editingId)) {
+      setEditingId(null);
+    }
+  }, [messages, editingId]);
 
   return (
     <div className="flex h-full w-full flex-col">
       <Conversation className="flex-1">
         <ConversationContent className="mx-auto w-full max-w-3xl gap-6 px-4 py-6">
-          {messages.map((message) => (
+          {messages.map((message) => {
+            const isEditing = editingId === message.id;
+            return (
             <Message key={message.id} from={message.role}>
+              {isEditing && message.role === "user" ? (
+                <UserEditor
+                  initialText={getMessageText(message)}
+                  onCancel={() => setEditingId(null)}
+                  onSave={(text) => {
+                    onEditMessage?.(message.id, text);
+                    setEditingId(null);
+                  }}
+                />
+              ) : (
               <MessageContent>
                 {message.parts.map((part, idx) => {
                   const key = `${message.id}-${idx}`;
@@ -133,15 +166,28 @@ export function ChatView({
                   return null;
                 })}
               </MessageContent>
-              {message.role === "assistant" && !isStreaming && (
+              )}
+              {!isEditing && message.role === "assistant" && !isStreaming && (
                 <MessageActions
                   message={message}
                   canRegenerate={message.id === lastAssistantId && !!onRegenerate}
                   onRegenerate={onRegenerate}
                 />
               )}
+              {!isEditing &&
+                message.role === "user" &&
+                !isStreaming &&
+                onEditMessage && (
+                  <MessageActions
+                    align="end"
+                    message={message}
+                    canEdit
+                    onEdit={() => setEditingId(message.id)}
+                  />
+                )}
             </Message>
-          ))}
+            );
+          })}
           {status === "submitted" && (
             <Message from="assistant">
               <MessageContent>
@@ -172,6 +218,71 @@ export function ChatView({
           placeholder={pendingChoice ? "Or reply directly…" : undefined}
           autoFocus
         />
+      </div>
+    </div>
+  );
+}
+
+function UserEditor({
+  initialText,
+  onSave,
+  onCancel,
+}: {
+  initialText: string;
+  onSave: (text: string) => void;
+  onCancel: () => void;
+}) {
+  const [value, setValue] = useState(initialText);
+  const ref = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    el.focus();
+    el.setSelectionRange(el.value.length, el.value.length);
+  }, []);
+
+  const submit = () => {
+    const trimmed = value.trim();
+    if (!trimmed || trimmed === initialText.trim()) {
+      onCancel();
+      return;
+    }
+    onSave(trimmed);
+  };
+
+  const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === "Escape") {
+      e.preventDefault();
+      onCancel();
+      return;
+    }
+    if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+      e.preventDefault();
+      submit();
+    }
+  };
+
+  return (
+    <div className="ml-auto flex w-full max-w-[95%] flex-col gap-2 rounded-lg border border-border/60 bg-secondary p-2">
+      <Textarea
+        ref={ref}
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        onKeyDown={handleKeyDown}
+        rows={Math.min(8, Math.max(2, value.split("\n").length))}
+        className="min-h-16 resize-none border-0 bg-transparent text-sm shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
+      />
+      <div className="flex items-center justify-end gap-2">
+        <span className="mr-auto text-[11px] text-muted-foreground">
+          ⌘↵ to save · Esc to cancel
+        </span>
+        <Button type="button" variant="ghost" size="sm" onClick={onCancel}>
+          Cancel
+        </Button>
+        <Button type="button" size="sm" onClick={submit}>
+          Save & resend
+        </Button>
       </div>
     </div>
   );
