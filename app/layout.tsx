@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Sen, Syne, JetBrains_Mono } from "next/font/google";
 import { ThemeProvider } from "@/components/providers/theme-provider";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { Toaster } from "@/components/ui/sonner";
 import "./globals.css";
 
 const sans = Sen({
@@ -46,6 +47,7 @@ export default function RootLayout({
           disableTransitionOnChange
         >
           <TooltipProvider delayDuration={200}>{children}</TooltipProvider>
+          <Toaster position="top-right" richColors closeButton />
         </ThemeProvider>
       </body>
     </html>

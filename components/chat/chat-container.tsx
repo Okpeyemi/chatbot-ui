@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useChat } from "@ai-sdk/react";
 import { nanoid } from "nanoid";
+import { toast } from "sonner";
 import { WelcomeScreen } from "@/components/chat/welcome-screen";
 import { ChatView } from "@/components/chat/chat-view";
 import type { SubmitPayload } from "@/components/chat/composer";
@@ -65,9 +66,69 @@ export function ChatContainer({ initialChatId }: ChatContainerProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hasHydrated]);
 
-  const { messages, sendMessage, status, error, regenerate } = useChat({
-    chat,
-  });
+  const { messages, sendMessage, status, error, regenerate, addToolOutput } =
+    useChat({
+      chat,
+    });
+
+  // Detect a pending `presentChoices` tool call in the most recent assistant
+  // message that hasn't been answered yet.
+  const pendingChoice = useMemo(() => {
+    for (let i = messages.length - 1; i >= 0; i--) {
+      const m = messages[i];
+      if (m.role !== "assistant") continue;
+      for (const part of m.parts) {
+        if (
+          part.type === "tool-presentChoices" &&
+          (part.state === "input-available" ||
+            part.state === "input-streaming")
+        ) {
+          const input = part.input as
+            | {
+                title?: string;
+                options?: string[];
+                allowOther?: boolean;
+              }
+            | undefined;
+          if (input?.title && Array.isArray(input.options)) {
+            return {
+              toolCallId: part.toolCallId,
+              title: input.title,
+              options: input.options,
+              allowOther: input.allowOther ?? true,
+            };
+          }
+        }
+      }
+      // Stop at the latest assistant message (older calls are already
+      // resolved or not the active prompt).
+      break;
+    }
+    return null;
+  }, [messages]);
+
+  const resolveChoice = (chosen: string | null) => {
+    if (!pendingChoice) return;
+    addToolOutput({
+      tool: "presentChoices",
+      toolCallId: pendingChoice.toolCallId,
+      output: chosen ? { picked: chosen } : { skipped: true },
+    });
+  };
+
+  const handleChoiceSelect = (choice: string) => {
+    resolveChoice(choice);
+    // Send the choice as a regular user message so it shows up in the chat
+    // history and the assistant can react to it.
+    sendMessage(
+      { role: "user", parts: [{ type: "text", text: choice }] },
+      { body: { modelId } }
+    );
+  };
+
+  const handleChoiceSkip = () => {
+    resolveChoice(null);
+  };
 
   const promoteUrl = () => {
     if (hasUrl) return;
@@ -77,6 +138,12 @@ export function ChatContainer({ initialChatId }: ChatContainerProps) {
 
   const handleSubmit = (payload: SubmitPayload) => {
     promoteUrl();
+
+    // If the user typed a free-form reply while a choice picker was open,
+    // close it (their text reply wins) before sending.
+    if (pendingChoice) {
+      resolveChoice(null);
+    }
 
     // Build the user message parts.
     const fileParts = payload.files.map((f) => ({
@@ -122,6 +189,15 @@ export function ChatContainer({ initialChatId }: ChatContainerProps) {
     }
   }, [stored, messages, chatId, renameConversation]);
 
+  // Surface stream errors as a toast in the top-right corner.
+  useEffect(() => {
+    if (!error) return;
+    toast.error("Something went wrong", {
+      description: error.message,
+      duration: 6000,
+    });
+  }, [error]);
+
   // While arriving on /c/[id]: wait for localStorage to hydrate (and for the
   // seed effect to copy stored messages into the chat instance) before deciding
   // between welcome and chat. Otherwise the welcome screen flashes for one
@@ -146,20 +222,16 @@ export function ChatContainer({ initialChatId }: ChatContainerProps) {
   }
 
   return (
-    <>
-      <ChatView
-        messages={messages}
-        status={status}
-        modelId={modelId}
-        onModelChange={setModelId}
-        onSubmit={handleSubmit}
-        onRegenerate={() => regenerate({ body: { modelId } })}
-      />
-      {error && (
-        <div className="absolute bottom-24 left-1/2 -translate-x-1/2 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
-          {error.message}
-        </div>
-      )}
-    </>
+    <ChatView
+      messages={messages}
+      status={status}
+      modelId={modelId}
+      onModelChange={setModelId}
+      onSubmit={handleSubmit}
+      onRegenerate={() => regenerate({ body: { modelId } })}
+      pendingChoice={pendingChoice}
+      onChoiceSelect={handleChoiceSelect}
+      onChoiceSkip={handleChoiceSkip}
+    />
   );
 }
