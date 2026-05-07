@@ -19,6 +19,7 @@ import {
   StopIcon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { ModelSelector } from "@/components/chat/model-selector";
@@ -28,6 +29,8 @@ import {
   fileToAttached,
   type AttachedFile,
 } from "@/lib/files";
+import { useSpeechRecognition } from "@/lib/use-speech-recognition";
+import { useUIStore } from "@/lib/ui-store";
 import { cn } from "@/lib/utils";
 
 export type SubmitPayload = {
@@ -72,6 +75,49 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // Voice input. Strips off the previous interim chunk on every event so the
+  // final text settles cleanly.
+  const language = useUIStore((s) => s.language);
+  const interimRef = useRef("");
+  const speech = useSpeechRecognition({
+    lang: language || undefined,
+    onTranscript: (chunk, isFinal) => {
+      setValue((prev) => {
+        const baseline = interimRef.current
+          ? prev.slice(0, prev.length - interimRef.current.length)
+          : prev;
+        if (isFinal) {
+          interimRef.current = "";
+          const sep = baseline && !baseline.endsWith(" ") ? " " : "";
+          return baseline + sep + chunk.trim();
+        }
+        interimRef.current = chunk;
+        const sep = baseline && !baseline.endsWith(" ") ? " " : "";
+        return baseline + sep + chunk;
+      });
+    },
+    onError: (err) => {
+      interimRef.current = "";
+      if (err === "no-speech" || err === "aborted") return;
+      const message =
+        err === "not-allowed" || err === "service-not-allowed"
+          ? "Microphone access denied. Allow it in your browser settings."
+          : `Voice input failed: ${err}`;
+      toast.error("Microphone", { description: message, duration: 5000 });
+    },
+  });
+  const handleMicClick = () => {
+    if (!speech.supported) {
+      toast.error("Voice input not supported", {
+        description:
+          "Your browser doesn't expose the Web Speech API. Try Chrome / Edge / Safari.",
+        duration: 5000,
+      });
+      return;
+    }
+    speech.toggle();
+  };
 
   useImperativeHandle(
     ref,
@@ -219,10 +265,19 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
           <ModelSelector value={modelId} onChange={onModelChange} />
           <Button
             type="button"
-            variant="ghost"
+            variant={speech.listening ? "default" : "ghost"}
             size="icon"
-            className="size-8 rounded-md text-muted-foreground hover:text-foreground"
-            aria-label="Voice input"
+            onClick={handleMicClick}
+            className={cn(
+              "size-8 rounded-md",
+              speech.listening
+                ? "animate-pulse"
+                : "text-muted-foreground hover:text-foreground"
+            )}
+            aria-label={
+              speech.listening ? "Stop voice input" : "Start voice input"
+            }
+            aria-pressed={speech.listening}
           >
             <HugeiconsIcon icon={Mic01Icon} size={18} strokeWidth={1.5} />
           </Button>
