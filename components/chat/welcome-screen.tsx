@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   SparklesIcon,
   CodeIcon,
@@ -51,27 +51,66 @@ const SUGGESTIONS: Suggestion[] = [
     template: "Give me advice on ",
   },
   {
-    id: "claude",
-    label: "Claude’s choice",
+    id: "chatbotui",
+    label: "ChatbotUI’s choice",
     icon: StarsIcon,
     template: "Surprise me with ",
   },
 ];
 
+const GREETINGS = [
+  "What’s on your mind?",
+  "Ready when you are.",
+  "Let’s get something done.",
+] as const;
+
 type WelcomeScreenProps = {
   modelId: string;
   onModelChange: (id: string) => void;
   onSubmit: (payload: SubmitPayload) => void;
-  greeting?: string;
 };
 
 export function WelcomeScreen({
   modelId,
   onModelChange,
   onSubmit,
-  greeting = "Coffee and Claude time?",
 }: WelcomeScreenProps) {
   const composerRef = useRef<ComposerHandle>(null);
+
+  // Cycle through GREETINGS with a typewriter intro.
+  // SSR renders the first phrase fully (a11y + no layout shift); the typewriter
+  // takes over once the client mounts.
+  const [phraseIndex, setPhraseIndex] = useState(0);
+  const [typed, setTyped] = useState<string>(GREETINGS[0]);
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (!isMounted) return;
+    const target = GREETINGS[phraseIndex];
+    setTyped("");
+    let chars = 0;
+    const typeMs = 45;
+    const holdMs = 1800;
+    const typeId = window.setInterval(() => {
+      chars += 1;
+      setTyped(target.slice(0, chars));
+      if (chars >= target.length) window.clearInterval(typeId);
+    }, typeMs);
+    const advanceId = window.setTimeout(
+      () => {
+        setPhraseIndex((i) => (i + 1) % GREETINGS.length);
+      },
+      target.length * typeMs + holdMs
+    );
+    return () => {
+      window.clearInterval(typeId);
+      window.clearTimeout(advanceId);
+    };
+  }, [phraseIndex, isMounted]);
 
   return (
     <div className="relative flex h-full w-full flex-col">
@@ -103,9 +142,15 @@ export function WelcomeScreen({
               icon={SparklesIcon}
               size={28}
               strokeWidth={1.5}
-              className="text-accent-brand"
+              className="animate-sparkle text-accent-brand"
             />
-            <span>{greeting}</span>
+            <span aria-live="polite">
+              {typed}
+              <span
+                aria-hidden
+                className="ml-0.5 inline-block w-0.5 -translate-y-0.5 bg-current align-baseline animate-caret h-[0.85em]"
+              />
+            </span>
           </h1>
 
           <Composer
