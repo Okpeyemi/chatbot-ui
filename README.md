@@ -46,21 +46,31 @@ GOOGLE_GENERATIVE_AI_API_KEY=...
 
 # Optional — enables higher-quality web search (1k req/month free at tavily.com)
 TAVILY_API_KEY=tvly-...
+
+# Optional — Python sandbox for the runCode tool (free tier at e2b.dev)
+E2B_API_KEY=e2b_...
 ```
 
-## Web access
+## Tools
 
-The assistant can browse the web through two model-agnostic tools:
+All tools live in `lib/ai/tools.ts` and are registered with every
+`streamText` call, so swapping models doesn't change what the bot can do.
 
-- `webSearch(query, maxResults?)` — uses [Tavily](https://tavily.com) when
-  `TAVILY_API_KEY` is set, otherwise falls back to DuckDuckGo's Instant Answer
-  API (free, no key required, but more limited).
-- `webFetch(url)` — fetches a single page, strips HTML to readable text and
-  caps the output at ~12k characters.
+| Tool | Purpose | Requires |
+| ---- | ------- | -------- |
+| `presentChoices` | Multiple-choice picker above the input | – (UI only) |
+| `rememberFact` | Persist a durable fact about the user (re-injected into every future system prompt) | – (localStorage) |
+| `now(timezone?)` | Current date/time in any IANA timezone | – |
+| `calculator(expression)` | Deterministic math via [mathjs](https://mathjs.org) | – |
+| `wikipedia(query)` | English Wikipedia page summary | – |
+| `webSearch(query, maxResults?)` | Web search | `TAVILY_API_KEY` (optional, DDG fallback) |
+| `webFetch(url)` | Read one page, returns ~12 k chars of readable text | – |
+| `generateImage(prompt, size?)` | Image generation, rendered inline in the chat | `OPENAI_API_KEY` |
+| `runCode(code)` | Python in an isolated [E2B](https://e2b.dev) sandbox | `E2B_API_KEY` |
 
-Both tools are defined in `lib/ai/tools.ts` and registered with `streamText`
-in `app/api/chat/route.ts`. Any model that supports tool calling can use them
-— swap providers freely.
+Memories saved via `rememberFact` are scoped to the browser (localStorage,
+key `chatbot-ui:memories`). They're sent in every `/api/chat` request body
+and prepended to the system prompt.
 
 ## Project layout
 
