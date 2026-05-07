@@ -250,6 +250,7 @@ export function ChatView({
           onSubmit={onSubmit}
           onStop={onStop}
           isStreaming={isStreaming}
+          conversationMessages={messages}
           placeholder={pendingChoice ? "Or reply directly…" : undefined}
           autoFocus
         />

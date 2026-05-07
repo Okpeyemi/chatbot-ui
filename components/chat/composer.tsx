@@ -33,7 +33,14 @@ import {
 } from "@/lib/files";
 import { useSpeechRecognition } from "@/lib/use-speech-recognition";
 import { useUIStore } from "@/lib/ui-store";
+import {
+  estimateMessagesTokens,
+  estimateTokens,
+  formatTokenCount,
+  getContextInfo,
+} from "@/lib/token-count";
 import { cn } from "@/lib/utils";
+import type { UIMessage } from "ai";
 
 export type SubmitPayload = {
   text: string;
@@ -50,6 +57,9 @@ export type ComposerProps = {
   placeholder?: string;
   autoFocus?: boolean;
   className?: string;
+  /** Existing conversation messages — used to compute the running token
+   *  budget displayed under the composer. */
+  conversationMessages?: UIMessage[];
 };
 
 export type ComposerHandle = {
@@ -69,6 +79,7 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
     placeholder = "How can I help you today?",
     autoFocus,
     className,
+    conversationMessages,
   },
   ref
 ) {
@@ -77,6 +88,19 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // Token / context budget for the current input + conversation.
+  const tokenStats = (() => {
+    const input = estimateTokens(value);
+    const used = conversationMessages
+      ? estimateMessagesTokens(conversationMessages)
+      : 0;
+    const ctx = getContextInfo(modelId);
+    const total = input + used;
+    const max = ctx.contextMax;
+    const percent = max ? Math.min(100, Math.round((total / max) * 100)) : null;
+    return { input, used, total, max, percent };
+  })();
 
   // Voice input. Strips off the previous interim chunk on every event so the
   // final text settles cleanly.
@@ -340,48 +364,89 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
           <HugeiconsIcon icon={PlusSignIcon} size={18} strokeWidth={1.5} />
         </Button>
 
-        <div className="flex items-center gap-1">
-          <ModelSelector value={modelId} onChange={onModelChange} />
-          <Button
-            type="button"
-            variant={speech.listening ? "default" : "ghost"}
-            size="icon"
-            onClick={handleMicClick}
+        <div className="flex flex-1 items-center justify-end gap-3">
+          <span
             className={cn(
-              "size-8 rounded-md",
-              speech.listening
-                ? "animate-pulse"
-                : "text-muted-foreground hover:text-foreground"
+              "hidden text-[11px] tabular-nums text-muted-foreground sm:inline",
+              tokenStats.percent !== null &&
+                tokenStats.percent >= 80 &&
+                "text-amber-500",
+              tokenStats.percent !== null &&
+                tokenStats.percent >= 95 &&
+                "text-destructive"
             )}
-            aria-label={
-              speech.listening ? "Stop voice input" : "Start voice input"
+            title={
+              tokenStats.max
+                ? `~${tokenStats.input} input + ${tokenStats.used} history ≈ ${tokenStats.total} of ${tokenStats.max} tokens`
+                : `~${tokenStats.total} tokens (no context info for this model)`
             }
-            aria-pressed={speech.listening}
           >
-            <HugeiconsIcon icon={Mic01Icon} size={18} strokeWidth={1.5} />
-          </Button>
-          {isStreaming && onStop ? (
+            {tokenStats.input > 0 && (
+              <>
+                <span>{formatTokenCount(tokenStats.input)} in</span>
+                <span aria-hidden> · </span>
+              </>
+            )}
+            {tokenStats.max ? (
+              <>
+                <span>{formatTokenCount(tokenStats.total)}</span>
+                <span aria-hidden> / </span>
+                <span>{formatTokenCount(tokenStats.max)}</span>
+                {tokenStats.percent !== null && (
+                  <span aria-hidden> ({tokenStats.percent}%)</span>
+                )}
+              </>
+            ) : (
+              <span>{formatTokenCount(tokenStats.total)} total</span>
+            )}
+          </span>
+          <div className="flex items-center gap-1">
+            <ModelSelector value={modelId} onChange={onModelChange} />
             <Button
               type="button"
+              variant={speech.listening ? "default" : "ghost"}
               size="icon"
-              variant="default"
-              onClick={onStop}
-              className="size-8 rounded-md"
-              aria-label="Stop generating"
+              onClick={handleMicClick}
+              className={cn(
+                "size-8 rounded-md",
+                speech.listening
+                  ? "animate-pulse"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
+              aria-label={
+                speech.listening ? "Stop voice input" : "Start voice input"
+              }
+              aria-pressed={speech.listening}
             >
-              <HugeiconsIcon icon={StopCircleIcon} size={16} strokeWidth={2} />
+              <HugeiconsIcon icon={Mic01Icon} size={18} strokeWidth={1.5} />
             </Button>
-          ) : (
-            <Button
-              type="submit"
-              size="icon"
-              disabled={!canSubmit}
-              className="size-8 rounded-md"
-              aria-label="Send message"
-            >
-              <HugeiconsIcon icon={ArrowUp02Icon} size={18} strokeWidth={2} />
-            </Button>
-          )}
+            {isStreaming && onStop ? (
+              <Button
+                type="button"
+                size="icon"
+                variant="default"
+                onClick={onStop}
+                className="size-8 rounded-md"
+                aria-label="Stop generating"
+              >
+                <HugeiconsIcon
+                  icon={StopCircleIcon}
+                  size={16}
+                  strokeWidth={2}
+                />
+              </Button>
+            ) : (
+              <Button
+                type="submit"
+                size="icon"
+                disabled={!canSubmit}
+                className="size-8 rounded-md"
+                aria-label="Send message"
+              >
+                <HugeiconsIcon icon={ArrowUp02Icon} size={18} strokeWidth={2} />
+              </Button>
+            )}
+          </div>
         </div>
       </div>
     </form>
