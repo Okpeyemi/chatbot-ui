@@ -5,9 +5,11 @@ import { persist, createJSONStorage } from "zustand/middleware";
 
 type UIState = {
   sidebarExpanded: boolean;
+  language: string;
   hasHydrated: boolean;
   toggleSidebar: () => void;
   setSidebarExpanded: (expanded: boolean) => void;
+  setLanguage: (lang: string) => void;
 };
 
 const noopStorage = {
@@ -20,17 +22,22 @@ export const useUIStore = create<UIState>()(
   persist(
     (set) => ({
       sidebarExpanded: false,
+      language: "en-US",
       hasHydrated: false,
       toggleSidebar: () =>
         set((s) => ({ sidebarExpanded: !s.sidebarExpanded })),
       setSidebarExpanded: (expanded) => set({ sidebarExpanded: expanded }),
+      setLanguage: (lang) => set({ language: lang }),
     }),
     {
       name: "chatbot-ui:ui",
       storage: createJSONStorage(() =>
         typeof window !== "undefined" ? window.localStorage : noopStorage
       ),
-      partialize: (state) => ({ sidebarExpanded: state.sidebarExpanded }),
+      partialize: (state) => ({
+        sidebarExpanded: state.sidebarExpanded,
+        language: state.language,
+      }),
       onRehydrateStorage: () => (state) => {
         if (state) {
           setTimeout(() => {

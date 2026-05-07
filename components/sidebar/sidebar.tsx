@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/tooltip";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { ThemeToggle } from "@/components/sidebar/theme-toggle";
+import { AccountMenu } from "@/components/sidebar/account-menu";
 import { SearchDialog } from "@/components/sidebar/search-dialog";
 import { useUIStore } from "@/lib/ui-store";
 import { useConversationsStore } from "@/lib/conversations-store";
@@ -297,17 +298,27 @@ function SidebarFooter({ expanded }: { expanded: boolean }) {
   if (expanded) {
     return (
       <div className="flex items-center gap-2 border-t border-sidebar-border/60 px-2 py-2">
-        <Avatar className="size-7">
-          <AvatarFallback className="bg-sidebar-accent text-xs font-medium text-sidebar-foreground">
-            M
-          </AvatarFallback>
-        </Avatar>
-        <div className="min-w-0 flex-1 text-xs leading-tight">
-          <div className="truncate font-medium text-sidebar-foreground">
-            You
-          </div>
-          <div className="truncate text-sidebar-foreground/60">Free plan</div>
-        </div>
+        <AccountMenu side="top" align="start">
+          <button
+            type="button"
+            aria-label="Account"
+            className="flex min-w-0 flex-1 items-center gap-2 rounded-md px-1 py-1 text-left hover:bg-sidebar-accent"
+          >
+            <Avatar className="size-7">
+              <AvatarFallback className="bg-sidebar-accent text-xs font-medium text-sidebar-foreground">
+                M
+              </AvatarFallback>
+            </Avatar>
+            <span className="min-w-0 flex-1 text-xs leading-tight">
+              <span className="block truncate font-medium text-sidebar-foreground">
+                You
+              </span>
+              <span className="block truncate text-sidebar-foreground/60">
+                Free plan
+              </span>
+            </span>
+          </button>
+        </AccountMenu>
         <div className="flex items-center gap-0.5">
           <Tooltip>
             <TooltipTrigger
@@ -359,26 +370,19 @@ function SidebarFooter({ expanded }: { expanded: boolean }) {
           Get the app
         </TooltipContent>
       </Tooltip>
-      <Tooltip>
-        <TooltipTrigger
-          render={
-            <button
-              type="button"
-              aria-label="Account"
-              className="rounded-full focus:outline-none focus:ring-2 focus:ring-sidebar-ring"
-            >
-              <Avatar className="size-7">
-                <AvatarFallback className="bg-sidebar-accent text-xs font-medium text-sidebar-foreground">
-                  M
-                </AvatarFallback>
-              </Avatar>
-            </button>
-          }
-        />
-        <TooltipContent side="right" sideOffset={8}>
-          Account
-        </TooltipContent>
-      </Tooltip>
+      <AccountMenu side="right" align="end">
+        <button
+          type="button"
+          aria-label="Account"
+          className="rounded-full focus:outline-none focus:ring-2 focus:ring-sidebar-ring"
+        >
+          <Avatar className="size-7">
+            <AvatarFallback className="bg-sidebar-accent text-xs font-medium text-sidebar-foreground">
+              M
+            </AvatarFallback>
+          </Avatar>
+        </button>
+      </AccountMenu>
     </div>
   );
 }
