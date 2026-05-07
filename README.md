@@ -1,36 +1,102 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Chatbot UI
 
-## Getting Started
+An open-source, self-hostable chatbot interface inspired by Claude.ai — bring
+your own model. Built with Next.js 16, the Vercel AI SDK, shadcn/ui + AI
+Elements, and Zustand-backed `localStorage` persistence.
 
-First, run the development server:
+## Features
+
+- Welcome screen + chat view with the Claude.ai look (serif title, narrow icon
+  sidebar, suggestion chips)
+- Streaming responses with Markdown, syntax highlighting, math and Mermaid
+  (powered by [Streamdown](https://github.com/vercel/streamdown))
+- Multi-provider model picker (Anthropic, OpenAI, Google) — wire any provider
+  in `lib/ai/providers.ts`
+- Multi-conversation history persisted in `localStorage`, with a sidebar
+  (delete, active highlight, time-bucket grouping)
+- Multimodal uploads — images and PDFs go straight into the message
+- Light / dark theme toggle
+- Message actions (copy, regenerate)
+- All icons from [HugeIcons](https://hugeicons.com/)
+
+## Quick start
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
+git clone <your-fork-url> chatbot-ui
+cd chatbot-ui
+pnpm install
+cp .env.example .env.local   # then add at least one provider API key
 pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open http://localhost:3000.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+There is no database — every conversation lives in your browser's
+`localStorage`. Each user (and each browser) has their own private history.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Environment variables
 
-## Learn More
+Set the keys for the providers you want to use. You only need the ones for
+models you actually select in the UI.
 
-To learn more about Next.js, take a look at the following resources:
+```
+ANTHROPIC_API_KEY=sk-ant-...
+OPENAI_API_KEY=sk-...
+GOOGLE_GENERATIVE_AI_API_KEY=...
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Project layout
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```
+app/
+  (chat)/                 route group with the shared sidebar layout
+    layout.tsx            sidebar + conversation history
+    page.tsx              welcome screen
+    c/[id]/page.tsx       existing conversation (id resolved from URL)
+  api/chat/route.ts       streamText endpoint (no persistence — UI-only)
+components/
+  ai-elements/            Vercel AI Elements primitives (Conversation, Message…)
+  chat/                   ChatContainer, ChatView, Composer, model selector
+  sidebar/                AppSidebar, ConversationHistory, ThemeToggle
+  ui/                     shadcn/ui primitives
+lib/
+  ai/                     model registry + provider resolver
+  chat-store.ts           in-memory map of live AI SDK Chat instances
+  conversations-store.ts  Zustand store backed by localStorage
+  files.ts                attachment helpers
+```
 
-## Deploy on Vercel
+## Adding a model
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+1. Add an entry in `lib/ai/models.ts` (`MODELS` array).
+2. Make sure the provider id is supported in `lib/ai/providers.ts` — if not,
+   install the matching `@ai-sdk/<provider>` package and register a factory.
+3. The new model shows up in the dropdown automatically.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Where is my data?
+
+Conversations are saved in `localStorage` under the key
+`chatbot-ui:conversations`. Clearing your browser data wipes the history.
+Conversations are NOT synced across devices or browsers.
+
+If you want server-side persistence (Postgres, SQLite, S3…), replace the
+`useConversationsStore` hook in `lib/conversations-store.ts` with calls to a
+backend, and implement the matching API routes.
+
+## Deployment
+
+Works on any host that runs Next.js (Vercel, Fly.io, Railway, Render, a VPS,
+Docker). Because there is no server-side database, no volume mount is needed.
+
+## Tech stack
+
+- [Next.js 16](https://nextjs.org/) (App Router, Turbopack)
+- [Tailwind CSS v4](https://tailwindcss.com/) + [shadcn/ui](https://ui.shadcn.com/)
+- [Vercel AI SDK 6](https://ai-sdk.dev/) + [AI Elements](https://ai-sdk.dev/elements)
+- [Zustand](https://github.com/pmndrs/zustand) (state + persist middleware)
+- [HugeIcons](https://hugeicons.com/) (free pack)
+- [next-themes](https://github.com/pacocoursey/next-themes)
+
+## License
+
+MIT.
