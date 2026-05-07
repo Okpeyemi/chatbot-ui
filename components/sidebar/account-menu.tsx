@@ -1,6 +1,6 @@
 "use client";
 
-import { type ReactNode } from "react";
+import { type ReactElement } from "react";
 import { HugeiconsIcon } from "@hugeicons/react";
 import {
   Settings01Icon,
@@ -40,7 +40,7 @@ const LANGUAGES = [
 const REPO_URL = "https://github.com/Okpeyemi/chatbot-ui";
 
 type AccountMenuProps = {
-  children: ReactNode;
+  children: ReactElement;
   side?: "top" | "right" | "bottom" | "left";
   align?: "start" | "center" | "end";
 };
@@ -104,7 +104,7 @@ export function AccountMenu({
               return (
                 <DropdownMenuItem
                   key={lang.id}
-                  onSelect={() => setLanguage(lang.id)}
+                  onClick={() => setLanguage(lang.id)}
                   className="pr-2"
                 >
                   <span className="truncate">{lang.label}</span>
@@ -122,19 +122,19 @@ export function AccountMenu({
           </DropdownMenuSubContent>
         </DropdownMenuSub>
 
-        <DropdownMenuItem onSelect={() => openExternal(REPO_URL)}>
+        <DropdownMenuItem onClick={() => openExternal(REPO_URL)}>
           <HugeiconsIcon icon={HelpCircleIcon} size={14} strokeWidth={1.75} />
           Get help
         </DropdownMenuItem>
 
         <DropdownMenuSeparator />
 
-        <DropdownMenuItem onSelect={() => openExternal(REPO_URL)}>
+        <DropdownMenuItem onClick={() => openExternal(REPO_URL)}>
           <HugeiconsIcon icon={GithubIcon} size={14} strokeWidth={1.75} />
           GitHub
         </DropdownMenuItem>
 
-        <DropdownMenuItem onSelect={() => openExternal(`${REPO_URL}#readme`)}>
+        <DropdownMenuItem onClick={() => openExternal(`${REPO_URL}#readme`)}>
           <HugeiconsIcon
             icon={InformationCircleIcon}
             size={14}

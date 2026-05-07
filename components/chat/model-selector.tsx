@@ -62,7 +62,7 @@ export function ModelSelector({
         {MODELS.map((m) => (
           <DropdownMenuItem
             key={m.id}
-            onSelect={() => onChange(m.id)}
+            onClick={() => onChange(m.id)}
             className="flex flex-col items-start gap-0.5"
           >
             <span className="font-medium">{m.label}</span>
@@ -84,7 +84,7 @@ export function ModelSelector({
             {ollama.models.map((m) => (
               <DropdownMenuItem
                 key={m.id}
-                onSelect={() => onChange(m.id)}
+                onClick={() => onChange(m.id)}
                 className="flex flex-col items-start gap-0.5"
               >
                 <span className="font-medium">{m.name}</span>
