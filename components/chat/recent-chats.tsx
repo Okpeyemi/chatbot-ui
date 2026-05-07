@@ -187,7 +187,7 @@ export function RecentChats() {
                   }
                 />
                 <DropdownMenuContent align="end" className="w-48">
-                  <DropdownMenuItem onSelect={() => openRename(c)}>
+                  <DropdownMenuItem onClick={() => openRename(c)}>
                     <HugeiconsIcon
                       icon={PencilEdit02Icon}
                       size={14}
@@ -196,7 +196,7 @@ export function RecentChats() {
                     Rename
                   </DropdownMenuItem>
                   <DropdownMenuItem
-                    onSelect={() =>
+                    onClick={() =>
                       downloadString(
                         conversationToMarkdown(c, c.messages),
                         filenameFor(c.title)
@@ -211,7 +211,7 @@ export function RecentChats() {
                     Download as Markdown
                   </DropdownMenuItem>
                   <DropdownMenuItem
-                    onSelect={() => setDeleteTarget(c)}
+                    onClick={() => setDeleteTarget(c)}
                     className="text-destructive focus:text-destructive"
                   >
                     <HugeiconsIcon

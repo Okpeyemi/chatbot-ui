@@ -51,6 +51,22 @@ TAVILY_API_KEY=tvly-...
 E2B_API_KEY=e2b_...
 ```
 
+## Local models (Ollama)
+
+Install [Ollama](https://ollama.com), pull a model, and it shows up in the
+model selector under **Local · Ollama** with no extra config:
+
+```bash
+brew install ollama   # or see ollama.com/download
+ollama pull llama3.2
+ollama serve          # usually started automatically
+```
+
+The app polls `http://localhost:11434` (override with `OLLAMA_BASE_URL`)
+and only renders the section when at least one model is installed. Tool
+calling works on models that support it (Llama 3.x, Qwen 2.5, Mistral…);
+others reply in plain text and the bot still works.
+
 ## Tools
 
 All tools live in `lib/ai/tools.ts` and are registered with every
