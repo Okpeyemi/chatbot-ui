@@ -28,15 +28,14 @@ export function ChatContainer({ initialChatId }: ChatContainerProps) {
   const upsertConversation = useConversationsStore(
     (s) => s.upsertConversation
   );
-  const saveMessages = useConversationsStore((s) => s.saveMessages);
 
   const [modelId, setModelId] = useState(
     stored?.modelId ?? DEFAULT_MODEL_ID
   );
 
   // Reuse the same Chat instance across remounts so navigating mid-stream
-  // doesn't drop the in-flight response. Hydrate from localStorage on first
-  // creation.
+  // doesn't drop the in-flight response. The instance owns its own onFinish
+  // (defined in lib/chat-store.ts) which persists to localStorage.
   const chat = useMemo(
     () => getOrCreateChat(chatId, stored?.messages),
     // We intentionally only key on chatId.
@@ -45,7 +44,8 @@ export function ChatContainer({ initialChatId }: ChatContainerProps) {
   );
 
   // If the store rehydrates AFTER the chat instance was created with empty
-  // messages (e.g. first paint of `/c/[id]`), seed the chat once.
+  // messages (refreshing /c/[id] is the canonical case), seed the chat from
+  // the persisted snapshot once it becomes available.
   useEffect(() => {
     if (
       hasHydrated &&
@@ -57,12 +57,16 @@ export function ChatContainer({ initialChatId }: ChatContainerProps) {
     }
   }, [hasHydrated, stored, chat]);
 
+  // Pick up modelId once the store hydrates (initial useState saw `undefined`).
+  useEffect(() => {
+    if (hasHydrated && stored && stored.modelId !== modelId) {
+      setModelId(stored.modelId);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasHydrated]);
+
   const { messages, sendMessage, status, error, regenerate } = useChat({
     chat,
-    onFinish: () => {
-      // Persist the latest messages snapshot to localStorage.
-      saveMessages(chatId, chat.messages);
-    },
   });
 
   const promoteUrl = () => {
@@ -117,6 +121,19 @@ export function ChatContainer({ initialChatId }: ChatContainerProps) {
       }
     }
   }, [stored, messages, chatId, renameConversation]);
+
+  // While arriving on /c/[id]: wait for localStorage to hydrate (and for the
+  // seed effect to copy stored messages into the chat instance) before deciding
+  // between welcome and chat. Otherwise the welcome screen flashes for one
+  // frame on every refresh.
+  const isHydratingPersistedChat =
+    !!initialChatId &&
+    (!hasHydrated ||
+      (!!stored && stored.messages.length > 0 && messages.length === 0));
+
+  if (isHydratingPersistedChat) {
+    return <div className="size-full" aria-hidden />;
+  }
 
   if (messages.length === 0) {
     return (
