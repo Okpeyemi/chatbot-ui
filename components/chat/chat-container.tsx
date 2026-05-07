@@ -79,9 +79,28 @@ export function ChatContainer({ initialChatId }: ChatContainerProps) {
     error,
     regenerate,
     addToolOutput,
+    stop,
   } = useChat({
     chat,
   });
+
+  const isStreaming = status === "streaming" || status === "submitted";
+
+  // Global Esc to stop the in-flight stream — but only when no input is
+  // focused (Esc inside the composer or picker should keep its local
+  // meaning).
+  useEffect(() => {
+    if (!isStreaming) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      const t = e.target as HTMLElement | null;
+      if (t?.tagName === "TEXTAREA" || t?.tagName === "INPUT") return;
+      e.preventDefault();
+      stop();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [isStreaming, stop]);
 
   const handleEditMessage = (messageId: string, newText: string) => {
     setMessages((curr) =>
@@ -284,6 +303,7 @@ export function ChatContainer({ initialChatId }: ChatContainerProps) {
       modelId={modelId}
       onModelChange={setModelId}
       onSubmit={handleSubmit}
+      onStop={stop}
       onRegenerate={() => regenerate({ body: { modelId, memories: memoryTexts } })}
       onEditMessage={handleEditMessage}
       pendingChoice={pendingChoice}

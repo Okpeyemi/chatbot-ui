@@ -36,6 +36,7 @@ type ChatViewProps = {
   modelId: string;
   onModelChange: (id: string) => void;
   onSubmit: (payload: SubmitPayload) => void;
+  onStop?: () => void;
   onRegenerate?: () => void;
   onEditMessage?: (messageId: string, newText: string) => void;
   pendingChoice?: PendingChoice | null;
@@ -56,6 +57,7 @@ export function ChatView({
   modelId,
   onModelChange,
   onSubmit,
+  onStop,
   onRegenerate,
   onEditMessage,
   pendingChoice,
@@ -214,7 +216,8 @@ export function ChatView({
           modelId={modelId}
           onModelChange={onModelChange}
           onSubmit={onSubmit}
-          disabled={isStreaming}
+          onStop={onStop}
+          isStreaming={isStreaming}
           placeholder={pendingChoice ? "Or reply directly…" : undefined}
           autoFocus
         />

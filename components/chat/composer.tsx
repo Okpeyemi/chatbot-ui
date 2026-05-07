@@ -16,6 +16,7 @@ import {
   CancelCircleIcon,
   Pdf01Icon,
   Image01Icon,
+  StopIcon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Button } from "@/components/ui/button";
@@ -38,6 +39,8 @@ export type ComposerProps = {
   modelId: string;
   onModelChange: (id: string) => void;
   onSubmit: (payload: SubmitPayload) => void;
+  onStop?: () => void;
+  isStreaming?: boolean;
   disabled?: boolean;
   placeholder?: string;
   autoFocus?: boolean;
@@ -55,6 +58,8 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
     modelId,
     onModelChange,
     onSubmit,
+    onStop,
+    isStreaming,
     disabled,
     placeholder = "How can I help you today?",
     autoFocus,
@@ -221,15 +226,28 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
           >
             <HugeiconsIcon icon={Mic01Icon} size={18} strokeWidth={1.5} />
           </Button>
-          <Button
-            type="submit"
-            size="icon"
-            disabled={!canSubmit}
-            className="size-8 rounded-md"
-            aria-label="Send message"
-          >
-            <HugeiconsIcon icon={ArrowUp02Icon} size={18} strokeWidth={2} />
-          </Button>
+          {isStreaming && onStop ? (
+            <Button
+              type="button"
+              size="icon"
+              variant="default"
+              onClick={onStop}
+              className="size-8 rounded-md"
+              aria-label="Stop generating"
+            >
+              <HugeiconsIcon icon={StopIcon} size={16} strokeWidth={2} />
+            </Button>
+          ) : (
+            <Button
+              type="submit"
+              size="icon"
+              disabled={!canSubmit}
+              className="size-8 rounded-md"
+              aria-label="Send message"
+            >
+              <HugeiconsIcon icon={ArrowUp02Icon} size={18} strokeWidth={2} />
+            </Button>
+          )}
         </div>
       </div>
     </form>
