@@ -22,7 +22,10 @@ export const useUIStore = create<UIState>()(
   persist(
     (set) => ({
       sidebarExpanded: false,
-      language: "en-US",
+      // Empty = "no explicit pick yet" → consumers fall back to
+      // navigator.language so the bot speaks the user's actual language
+      // out of the box.
+      language: "",
       hasHydrated: false,
       toggleSidebar: () =>
         set((s) => ({ sidebarExpanded: !s.sidebarExpanded })),

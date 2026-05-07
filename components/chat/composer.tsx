@@ -80,10 +80,15 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
 
   // Voice input. Strips off the previous interim chunk on every event so the
   // final text settles cleanly.
-  const language = useUIStore((s) => s.language);
+  const storedLanguage = useUIStore((s) => s.language);
+  // Empty store value = user hasn't picked anything yet → fall back to the
+  // browser's locale instead of forcing English.
+  const speechLang =
+    storedLanguage ||
+    (typeof navigator !== "undefined" ? navigator.language : "en-US");
   const interimRef = useRef("");
   const speech = useSpeechRecognition({
-    lang: language || undefined,
+    lang: speechLang,
     onTranscript: (chunk, isFinal) => {
       setValue((prev) => {
         const baseline = interimRef.current

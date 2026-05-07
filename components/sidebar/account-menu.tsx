@@ -52,6 +52,11 @@ export function AccountMenu({
 }: AccountMenuProps) {
   const language = useUIStore((s) => s.language);
   const setLanguage = useUIStore((s) => s.setLanguage);
+  // Resolve the active language for display: empty store = "use the
+  // browser's locale" so a checkmark still shows the right row.
+  const activeLanguage =
+    language ||
+    (typeof navigator !== "undefined" ? navigator.language : "en-US");
 
   const openExternal = (url: string) =>
     window.open(url, "_blank", "noopener,noreferrer");
@@ -91,7 +96,11 @@ export function AccountMenu({
             className={cn("max-h-80 ml-4 w-60 overflow-y-auto")}
           >
             {LANGUAGES.map((lang) => {
-              const checked = language === lang.id;
+              const checked =
+                activeLanguage === lang.id ||
+                (activeLanguage.startsWith(lang.id.split("-")[0]) &&
+                  language === "" &&
+                  lang.id.startsWith(activeLanguage.split("-")[0]));
               return (
                 <DropdownMenuItem
                   key={lang.id}

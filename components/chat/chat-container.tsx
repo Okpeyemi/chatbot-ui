@@ -85,6 +85,7 @@ export function ChatContainer({ initialChatId }: ChatContainerProps) {
     regenerate,
     addToolOutput,
     stop,
+    clearError,
   } = useChat({
     chat,
   });
@@ -107,25 +108,41 @@ export function ChatContainer({ initialChatId }: ChatContainerProps) {
     return () => window.removeEventListener("keydown", onKey);
   }, [isStreaming, stop]);
 
-  const handleEditMessage = (messageId: string, newText: string) => {
-    setMessages((curr) =>
-      curr.map((m) => {
-        if (m.id !== messageId) return m;
-        // Replace the message's text part(s) in-place; preserve any file or
-        // other parts the user attached.
-        const hadText = m.parts.some((p) => p.type === "text");
-        const nextParts = hadText
-          ? m.parts.map((p) =>
-              p.type === "text" ? { ...p, text: newText } : p
-            )
-          : [{ type: "text" as const, text: newText }, ...m.parts];
-        return { ...m, parts: nextParts };
-      })
-    );
-    regenerate({
-      messageId,
-      body: { modelId, memories: memoryTexts },
+  const handleEditMessage = async (messageId: string, newText: string) => {
+    // 1. Make sure the chat instance is in a clean state. If a previous
+    //    response was stopped or errored, regenerate would otherwise either
+    //    no-op or surface a stale error.
+    if (status === "streaming" || status === "submitted") {
+      stop();
+    }
+    clearError();
+
+    // 2. Truncate everything after the edited message, replacing the user
+    //    message text in-place. Any file parts the user originally attached
+    //    are preserved.
+    setMessages((curr) => {
+      const idx = curr.findIndex((m) => m.id === messageId);
+      if (idx === -1) return curr;
+      const original = curr[idx];
+      const hadText = original.parts.some((p) => p.type === "text");
+      const nextParts = hadText
+        ? original.parts.map((p) =>
+            p.type === "text" ? { ...p, text: newText } : p
+          )
+        : [{ type: "text" as const, text: newText }, ...original.parts];
+      return [...curr.slice(0, idx), { ...original, parts: nextParts }];
     });
+
+    // 3. Kick off the new assistant response. With the array now ending on
+    //    the edited user message, regenerate() (no messageId) keeps the
+    //    truncated state and just makes a request.
+    try {
+      await regenerate({ body: { modelId, memories: memoryTexts } });
+    } catch (err) {
+      toast.error("Couldn’t regenerate", {
+        description: err instanceof Error ? err.message : String(err),
+      });
+    }
   };
 
   // Detect a pending `presentChoices` tool call in the most recent assistant
