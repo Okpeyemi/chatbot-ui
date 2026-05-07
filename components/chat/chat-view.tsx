@@ -13,10 +13,18 @@ import {
 import { MessageActions } from "@/components/chat/message-actions";
 import Image from "next/image";
 import { Composer, type SubmitPayload } from "@/components/chat/composer";
+import { ChoicePicker } from "@/components/chat/choice-picker";
 import { Spinner } from "@/components/ui/spinner";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Pdf01Icon } from "@hugeicons/core-free-icons";
 import type { ChatStatus, UIMessage } from "ai";
+
+export type PendingChoice = {
+  toolCallId: string;
+  title: string;
+  options: string[];
+  allowOther: boolean;
+};
 
 type ChatViewProps = {
   messages: UIMessage[];
@@ -25,6 +33,9 @@ type ChatViewProps = {
   onModelChange: (id: string) => void;
   onSubmit: (payload: SubmitPayload) => void;
   onRegenerate?: () => void;
+  pendingChoice?: PendingChoice | null;
+  onChoiceSelect?: (choice: string) => void;
+  onChoiceSkip?: () => void;
 };
 
 export function ChatView({
@@ -34,6 +45,9 @@ export function ChatView({
   onModelChange,
   onSubmit,
   onRegenerate,
+  pendingChoice,
+  onChoiceSelect,
+  onChoiceSkip,
 }: ChatViewProps) {
   const isStreaming = status === "submitted" || status === "streaming";
   const lastAssistantId = [...messages]
@@ -126,12 +140,23 @@ export function ChatView({
         <ConversationScrollButton />
       </Conversation>
 
-      <div className="mx-auto w-full max-w-3xl px-4 pb-6">
+      <div className="mx-auto flex w-full max-w-3xl flex-col gap-3 px-4 pb-6">
+        {pendingChoice && onChoiceSelect && onChoiceSkip && (
+          <ChoicePicker
+            key={pendingChoice.toolCallId}
+            title={pendingChoice.title}
+            options={pendingChoice.options}
+            allowOther={pendingChoice.allowOther}
+            onSelect={onChoiceSelect}
+            onSkip={onChoiceSkip}
+          />
+        )}
         <Composer
           modelId={modelId}
           onModelChange={onModelChange}
           onSubmit={onSubmit}
           disabled={isStreaming}
+          placeholder={pendingChoice ? "Or reply directly…" : undefined}
           autoFocus
         />
       </div>

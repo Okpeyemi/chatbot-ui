@@ -1,6 +1,7 @@
 import { convertToModelMessages, streamText, type UIMessage } from "ai";
 import { resolveModel } from "@/lib/ai/providers";
 import { DEFAULT_MODEL_ID } from "@/lib/ai/models";
+import { tools } from "@/lib/ai/tools";
 
 export const maxDuration = 60;
 
@@ -42,8 +43,13 @@ export async function POST(req: Request) {
     model,
     system:
       system ??
-      "You are a helpful, concise assistant running inside an open-source chatbot UI. Use Markdown for code, lists, and formatting.",
+      [
+        "You are a helpful, concise assistant running inside an open-source chatbot UI.",
+        "Use Markdown for code, lists, and formatting.",
+        "When you need a precise answer from a small set of alternatives (typically 2 to 9 short options), call the `presentChoices` tool instead of asking with free-form text. Provide a clear `title` (the question) and short `options`. Set `allowOther` to true unless the answer must be one of the listed options.",
+      ].join("\n"),
     messages: modelMessages,
+    tools,
     onError: ({ error }) => {
       console.error("[/api/chat] streamText error:", error);
     },
