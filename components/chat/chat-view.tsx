@@ -14,6 +14,7 @@ import { MessageActions } from "@/components/chat/message-actions";
 import Image from "next/image";
 import { Composer, type SubmitPayload } from "@/components/chat/composer";
 import { ChoicePicker } from "@/components/chat/choice-picker";
+import { ToolTrace } from "@/components/chat/tool-trace";
 import { Spinner } from "@/components/ui/spinner";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Pdf01Icon } from "@hugeicons/core-free-icons";
@@ -82,6 +83,12 @@ export function ChatView({
                         </pre>
                       </details>
                     );
+                  }
+                  if (
+                    part.type === "tool-webSearch" ||
+                    part.type === "tool-webFetch"
+                  ) {
+                    return <ToolTrace key={key} part={part} />;
                   }
                   if (part.type === "file") {
                     if (part.mediaType?.startsWith("image/")) {

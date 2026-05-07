@@ -1,4 +1,9 @@
-import { convertToModelMessages, streamText, type UIMessage } from "ai";
+import {
+  convertToModelMessages,
+  stepCountIs,
+  streamText,
+  type UIMessage,
+} from "ai";
 import { resolveModel } from "@/lib/ai/providers";
 import { DEFAULT_MODEL_ID } from "@/lib/ai/models";
 import { tools } from "@/lib/ai/tools";
@@ -46,10 +51,19 @@ export async function POST(req: Request) {
       [
         "You are a helpful, concise assistant running inside an open-source chatbot UI.",
         "Use Markdown for code, lists, and formatting.",
-        "When you need a precise answer from a small set of alternatives (typically 2 to 9 short options), call the `presentChoices` tool instead of asking with free-form text. Provide a clear `title` (the question) and short `options`. Set `allowOther` to true unless the answer must be one of the listed options.",
+        "",
+        "TOOLS:",
+        "- `presentChoices` — when you need a precise answer from a small set of alternatives (2 to 9 short options), call this tool instead of asking with free-form text. Provide a clear `title` and short `options`. Set `allowOther` to true unless the answer must be one of the listed options.",
+        "- `webSearch` — call this whenever the user asks about current events, recent data, prices, news, or anything that may have changed since your training cutoff. Prefer focused, specific queries.",
+        "- `webFetch` — after `webSearch`, call this to read a specific result URL in detail. Cite the source URL in your final answer.",
+        "",
+        "When you use the web tools, summarise what you found and cite the URLs you relied on.",
       ].join("\n"),
     messages: modelMessages,
     tools,
+    // Allow the model to chain tool calls (search → fetch → answer) before
+    // closing the response. 8 steps is plenty without runaway.
+    stopWhen: stepCountIs(8),
     onError: ({ error }) => {
       console.error("[/api/chat] streamText error:", error);
     },

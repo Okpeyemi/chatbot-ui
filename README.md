@@ -43,7 +43,24 @@ models you actually select in the UI.
 ANTHROPIC_API_KEY=sk-ant-...
 OPENAI_API_KEY=sk-...
 GOOGLE_GENERATIVE_AI_API_KEY=...
+
+# Optional — enables higher-quality web search (1k req/month free at tavily.com)
+TAVILY_API_KEY=tvly-...
 ```
+
+## Web access
+
+The assistant can browse the web through two model-agnostic tools:
+
+- `webSearch(query, maxResults?)` — uses [Tavily](https://tavily.com) when
+  `TAVILY_API_KEY` is set, otherwise falls back to DuckDuckGo's Instant Answer
+  API (free, no key required, but more limited).
+- `webFetch(url)` — fetches a single page, strips HTML to readable text and
+  caps the output at ~12k characters.
+
+Both tools are defined in `lib/ai/tools.ts` and registered with `streamText`
+in `app/api/chat/route.ts`. Any model that supports tool calling can use them
+— swap providers freely.
 
 ## Project layout
 
