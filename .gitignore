@@ -39,3 +39,12 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# local data + dev artifacts
+/data
+/.playwright-mcp
+/welcome-stage2.png
+/welcome-stage3-final.png
+
+# allow committing the example env (the wildcard above ignores all .env files)
+!/.env.example
