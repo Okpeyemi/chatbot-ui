@@ -2,11 +2,18 @@ import {
   convertToModelMessages,
   stepCountIs,
   streamText,
+  type ToolSet,
   type UIMessage,
 } from "ai";
 import { resolveModel } from "@/lib/ai/providers";
 import { DEFAULT_MODEL_ID } from "@/lib/ai/models";
-import { tools } from "@/lib/ai/tools";
+import { tools as builtinTools } from "@/lib/ai/tools";
+import { loadFileMcpServers } from "@/lib/mcp/file-config";
+import { buildMcpToolset, type McpToolset } from "@/lib/mcp/toolset";
+import {
+  mcpServerConfigSchema,
+  type McpServerConfig,
+} from "@/lib/mcp/types";
 
 export const maxDuration = 60;
 
@@ -15,6 +22,7 @@ type ChatRequestBody = {
   modelId?: string;
   system?: string;
   memories?: string[];
+  mcpServers?: unknown;
 };
 
 export async function POST(req: Request) {
@@ -26,7 +34,13 @@ export async function POST(req: Request) {
     return new Response("Invalid JSON body", { status: 400 });
   }
 
-  const { messages, modelId = DEFAULT_MODEL_ID, system, memories } = body;
+  const {
+    messages,
+    modelId = DEFAULT_MODEL_ID,
+    system,
+    memories,
+    mcpServers: rawMcpServers,
+  } = body;
 
   if (!Array.isArray(messages)) {
     return new Response(
@@ -42,6 +56,54 @@ export async function POST(req: Request) {
     console.error("[/api/chat] unknown model id:", modelId, err);
     return new Response(`Unknown model id: ${modelId}`, { status: 400 });
   }
+
+  // ---------------------------------------------------------------------------
+  // Resolve the active MCP servers: file-based (mcp.json) + UI-added (request
+  // body). File entries always win on id-collision; both must be enabled.
+  // ---------------------------------------------------------------------------
+  const fileServers = await loadFileMcpServers();
+  const uiServers: McpServerConfig[] = Array.isArray(rawMcpServers)
+    ? rawMcpServers.flatMap((entry) => {
+        const parsed = mcpServerConfigSchema.safeParse(entry);
+        if (!parsed.success) {
+          console.warn("[/api/chat] dropping invalid MCP server", parsed.error.format());
+          return [];
+        }
+        return [parsed.data];
+      })
+    : [];
+
+  const mergedById = new Map<string, McpServerConfig>();
+  for (const s of uiServers) mergedById.set(s.id, s);
+  for (const s of fileServers) mergedById.set(s.id, s); // file overrides ui
+  const activeMcpServers = Array.from(mergedById.values()).filter(
+    (s) => s.enabled
+  );
+
+  // Connect to each server in parallel; failures are logged but don't kill
+  // the whole chat — the affected server's tools just won't be available.
+  const toolsetResults = await Promise.allSettled(
+    activeMcpServers.map(async (cfg) => ({
+      cfg,
+      toolset: await buildMcpToolset(cfg),
+    }))
+  );
+  const liveToolsets: { cfg: McpServerConfig; toolset: McpToolset }[] = [];
+  for (const r of toolsetResults) {
+    if (r.status === "fulfilled") {
+      liveToolsets.push(r.value);
+    } else {
+      console.error("[/api/chat] MCP server failed:", r.reason);
+    }
+  }
+  const mcpTools: ToolSet = liveToolsets.reduce<ToolSet>(
+    (acc, { toolset }) => ({ ...acc, ...toolset.tools }),
+    {}
+  );
+
+  const dispose = async () => {
+    await Promise.all(liveToolsets.map(({ toolset }) => toolset.dispose()));
+  };
 
   const modelMessages = await convertToModelMessages(messages);
 
@@ -72,23 +134,49 @@ export async function POST(req: Request) {
         ].join("\n")
       : "";
 
-  const result = streamText({
-    model,
-    system: (system ?? baseSystem) + memoryContext,
-    messages: modelMessages,
-    tools,
-    // Allow the model to chain tool calls (search → fetch → answer) before
-    // closing the response. 8 steps is plenty without runaway.
-    stopWhen: stepCountIs(8),
-    onError: ({ error }) => {
-      console.error("[/api/chat] streamText error:", error);
-    },
-  });
+  // Brief the model about every connected MCP server's tools so it knows
+  // they exist (descriptions only — the actual schema goes through the
+  // tool registration).
+  const mcpContext = liveToolsets.length
+    ? [
+        "",
+        "EXTERNAL MCP TOOLS — provided by user-configured Model Context Protocol servers. Treat them like any other tool.",
+        ...liveToolsets.flatMap(({ cfg, toolset }) =>
+          toolset.descriptors.map((d) => {
+            const name = `mcp_${cfg.name
+              .toLowerCase()
+              .replace(/[^a-z0-9]+/g, "_")
+              .replace(/^_+|_+$/g, "")
+              .slice(0, 32)}__${d.name}`;
+            return `- \`${name}\` — ${d.description ?? "(no description)"}`;
+          })
+        ),
+      ].join("\n")
+    : "";
 
-  return result.toUIMessageStreamResponse({
-    onError: (error) => {
-      console.error("[/api/chat] response stream error:", error);
-      return error instanceof Error ? error.message : String(error);
-    },
-  });
+  try {
+    const result = streamText({
+      model,
+      system: (system ?? baseSystem) + memoryContext + mcpContext,
+      messages: modelMessages,
+      tools: { ...builtinTools, ...mcpTools },
+      stopWhen: stepCountIs(8),
+      onError: ({ error }) => {
+        console.error("[/api/chat] streamText error:", error);
+      },
+    });
+
+    return result.toUIMessageStreamResponse({
+      onFinish: async () => {
+        await dispose();
+      },
+      onError: (error) => {
+        console.error("[/api/chat] response stream error:", error);
+        return error instanceof Error ? error.message : String(error);
+      },
+    });
+  } catch (err) {
+    await dispose();
+    throw err;
+  }
 }
