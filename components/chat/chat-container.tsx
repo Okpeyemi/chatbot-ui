@@ -15,6 +15,11 @@ import {
   useConversationsStore,
 } from "@/lib/conversations-store";
 import { useMemoryStore } from "@/lib/memory-store";
+import {
+  conversationToMarkdown,
+  downloadString,
+  filenameFor,
+} from "@/lib/export-markdown";
 
 type ChatContainerProps = {
   initialChatId?: string;
@@ -306,6 +311,12 @@ export function ChatContainer({ initialChatId }: ChatContainerProps) {
       onStop={stop}
       onRegenerate={() => regenerate({ body: { modelId, memories: memoryTexts } })}
       onEditMessage={handleEditMessage}
+      onDownload={() =>
+        downloadString(
+          conversationToMarkdown(stored ?? null, messages),
+          filenameFor(stored?.title)
+        )
+      }
       pendingChoice={pendingChoice}
       onChoiceSelect={handleChoiceSelect}
       onChoiceSkip={handleChoiceSkip}

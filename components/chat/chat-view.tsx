@@ -19,8 +19,13 @@ import { ToolTrace } from "@/components/chat/tool-trace";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Spinner } from "@/components/ui/spinner";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { Pdf01Icon } from "@hugeicons/core-free-icons";
+import { Pdf01Icon, Download01Icon } from "@hugeicons/core-free-icons";
 import type { ChatStatus, UIMessage } from "ai";
 
 export type PendingChoice = {
@@ -39,6 +44,7 @@ type ChatViewProps = {
   onStop?: () => void;
   onRegenerate?: () => void;
   onEditMessage?: (messageId: string, newText: string) => void;
+  onDownload?: () => void;
   pendingChoice?: PendingChoice | null;
   onChoiceSelect?: (choice: string) => void;
   onChoiceSkip?: () => void;
@@ -60,6 +66,7 @@ export function ChatView({
   onStop,
   onRegenerate,
   onEditMessage,
+  onDownload,
   pendingChoice,
   onChoiceSelect,
   onChoiceSkip,
@@ -79,7 +86,32 @@ export function ChatView({
   }, [messages, editingId]);
 
   return (
-    <div className="flex h-full w-full flex-col">
+    <div className="relative flex h-full w-full flex-col">
+      {onDownload && messages.length > 0 && (
+        <div className="pointer-events-none absolute right-4 top-3 z-10">
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <button
+                  type="button"
+                  onClick={onDownload}
+                  aria-label="Download conversation as Markdown"
+                  className="pointer-events-auto flex size-8 items-center justify-center rounded-md border border-border/40 bg-background/80 text-muted-foreground backdrop-blur transition-colors hover:bg-background hover:text-foreground"
+                >
+                  <HugeiconsIcon
+                    icon={Download01Icon}
+                    size={16}
+                    strokeWidth={1.5}
+                  />
+                </button>
+              }
+            />
+            <TooltipContent side="left" sideOffset={6}>
+              Download as Markdown
+            </TooltipContent>
+          </Tooltip>
+        </div>
+      )}
       <Conversation className="flex-1">
         <ConversationContent className="mx-auto w-full max-w-3xl gap-6 px-4 py-6">
           {messages.map((message) => {

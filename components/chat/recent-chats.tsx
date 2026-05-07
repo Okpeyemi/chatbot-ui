@@ -10,6 +10,7 @@ import {
   MoreHorizontalIcon,
   PencilEdit02Icon,
   Delete02Icon,
+  Download01Icon,
 } from "@hugeicons/core-free-icons";
 import {
   Dialog,
@@ -31,6 +32,11 @@ import {
   useConversationsStore,
   type StoredConversation,
 } from "@/lib/conversations-store";
+import {
+  conversationToMarkdown,
+  downloadString,
+  filenameFor,
+} from "@/lib/export-markdown";
 import { cn } from "@/lib/utils";
 
 const rtf = new Intl.RelativeTimeFormat("en", { numeric: "auto" });
@@ -180,7 +186,7 @@ export function RecentChats() {
                     </button>
                   }
                 />
-                <DropdownMenuContent align="end" className="w-44">
+                <DropdownMenuContent align="end" className="w-48">
                   <DropdownMenuItem onSelect={() => openRename(c)}>
                     <HugeiconsIcon
                       icon={PencilEdit02Icon}
@@ -188,6 +194,21 @@ export function RecentChats() {
                       strokeWidth={1.75}
                     />
                     Rename
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onSelect={() =>
+                      downloadString(
+                        conversationToMarkdown(c, c.messages),
+                        filenameFor(c.title)
+                      )
+                    }
+                  >
+                    <HugeiconsIcon
+                      icon={Download01Icon}
+                      size={14}
+                      strokeWidth={1.75}
+                    />
+                    Download as Markdown
                   </DropdownMenuItem>
                   <DropdownMenuItem
                     onSelect={() => setDeleteTarget(c)}
