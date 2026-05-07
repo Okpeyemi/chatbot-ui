@@ -3,7 +3,7 @@
 import { useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { Note01Icon } from "@hugeicons/core-free-icons";
+import { Message01Icon } from "@hugeicons/core-free-icons";
 import {
   Command,
   CommandDialog,
@@ -85,7 +85,7 @@ export function SearchDialog({ open, onOpenChange }: SearchDialogProps) {
       onOpenChange={onOpenChange}
       title="Search chats"
       description="Find a conversation by title."
-      className="top-[12%] w-[92vw] max-w-275 sm:max-w-275"
+      className="top-[12%] w-[92vw] max-w-200 sm:max-w-200"
     >
       <Command className="bg-transparent">
         <CommandInput placeholder="Search chats and projects" autoFocus />
@@ -101,7 +101,7 @@ export function SearchDialog({ open, onOpenChange }: SearchDialogProps) {
                   className="gap-3 px-3 py-2.5"
                 >
                   <HugeiconsIcon
-                    icon={Note01Icon}
+                    icon={Message01Icon}
                     size={16}
                     strokeWidth={1.5}
                     className="text-muted-foreground"
