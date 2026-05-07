@@ -63,7 +63,7 @@ export function AccountMenu({
         side={side}
         align={align}
         sideOffset={8}
-        className="w-64"
+        className="w-64 ml-3"
       >
         <div className="px-2 py-1.5">
           <div className="truncate text-sm font-medium text-foreground">
@@ -88,7 +88,7 @@ export function AccountMenu({
             Language
           </DropdownMenuSubTrigger>
           <DropdownMenuSubContent
-            className={cn("max-h-80 w-60 overflow-y-auto")}
+            className={cn("max-h-80 ml-4 w-60 overflow-y-auto")}
           >
             {LANGUAGES.map((lang) => {
               const checked = language === lang.id;
