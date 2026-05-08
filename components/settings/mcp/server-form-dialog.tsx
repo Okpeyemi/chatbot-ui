@@ -25,11 +25,13 @@ import {
 } from "@/components/ui/select";
 import { useMcpStore, type McpServerInput } from "@/lib/mcp-store";
 import { mcpServerConfigSchema, type McpServerConfig } from "@/lib/mcp/types";
+import type { McpRegistryEntry } from "@/lib/mcp/registry";
 import { cn } from "@/lib/utils";
 
 type Props = {
   open: boolean;
   initial: McpServerConfig | null;
+  template?: McpRegistryEntry | null;
   onClose: () => void;
 };
 
@@ -60,6 +62,28 @@ const empty: FormState = {
   args: "",
   env: "",
 };
+
+function fromTemplate(entry: McpRegistryEntry): FormState {
+  const t = entry.template;
+  return {
+    name: t.name,
+    enabled: true,
+    transport: t.transport,
+    url: t.url ?? "",
+    headers: t.headers
+      ? Object.entries(t.headers)
+          .map(([k, v]) => `${k}: ${v}`)
+          .join("\n")
+      : "",
+    command: t.command ?? "",
+    args: (t.args ?? []).join("\n"),
+    env: t.env
+      ? Object.entries(t.env)
+          .map(([k, v]) => `${k}=${v}`)
+          .join("\n")
+      : "",
+  };
+}
 
 function fromConfig(cfg: McpServerConfig): FormState {
   return {
@@ -138,7 +162,12 @@ type TestState =
   | { kind: "ok"; tools: { name: string; description?: string }[] }
   | { kind: "error"; message: string };
 
-export function ServerFormDialog({ open, initial, onClose }: Props) {
+export function ServerFormDialog({
+  open,
+  initial,
+  template,
+  onClose,
+}: Props) {
   const addServer = useMcpStore((s) => s.addServer);
   const updateServer = useMcpStore((s) => s.updateServer);
   const [form, setForm] = useState<FormState>(empty);
@@ -146,10 +175,16 @@ export function ServerFormDialog({ open, initial, onClose }: Props) {
 
   useEffect(() => {
     if (open) {
-      setForm(initial ? fromConfig(initial) : empty);
+      setForm(
+        initial
+          ? fromConfig(initial)
+          : template
+            ? fromTemplate(template)
+            : empty
+      );
       setTest({ kind: "idle" });
     }
-  }, [open, initial]);
+  }, [open, initial, template]);
 
   const isStdio = form.transport === "stdio";
 
@@ -231,6 +266,26 @@ export function ServerFormDialog({ open, initial, onClose }: Props) {
         </DialogHeader>
 
         <div className="space-y-4">
+          {template && template.needs && template.needs.length > 0 && (
+            <div className="rounded-md border border-amber-500/40 bg-amber-500/5 px-3 py-2 text-xs text-foreground">
+              <div className="mb-1 font-medium text-amber-500">
+                Before you save
+              </div>
+              <ul className="space-y-1">
+                {template.needs.map((n, i) => (
+                  <li key={i}>
+                    <span className="font-medium">{n.label}</span>
+                    {n.how && (
+                      <span className="block text-muted-foreground">
+                        {n.how}
+                      </span>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
           <div className="grid gap-2">
             <label className="text-sm font-medium" htmlFor="mcp-name">Name</label>
             <Input

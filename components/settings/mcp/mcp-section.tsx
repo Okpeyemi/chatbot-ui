@@ -14,7 +14,9 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { useMcpStore, TRANSPORT_LABEL } from "@/lib/mcp-store";
 import type { McpServerConfig } from "@/lib/mcp/types";
+import type { McpRegistryEntry } from "@/lib/mcp/registry";
 import { ServerFormDialog } from "@/components/settings/mcp/server-form-dialog";
+import { McpQuickAdd } from "@/components/settings/mcp/mcp-quick-add";
 import { cn } from "@/lib/utils";
 
 export function McpSection() {
@@ -25,6 +27,7 @@ export function McpSection() {
   const [fileServers, setFileServers] = useState<McpServerConfig[]>([]);
   const [editing, setEditing] = useState<McpServerConfig | null>(null);
   const [creating, setCreating] = useState(false);
+  const [template, setTemplate] = useState<McpRegistryEntry | null>(null);
 
   useEffect(() => {
     let alive = true;
@@ -56,11 +59,26 @@ export function McpSection() {
             root appear here read-only.
           </p>
         </div>
-        <Button onClick={() => setCreating(true)} className="shrink-0">
+        <Button
+          onClick={() => {
+            setTemplate(null);
+            setEditing(null);
+            setCreating(true);
+          }}
+          className="shrink-0"
+        >
           <HugeiconsIcon icon={PlusSignIcon} size={14} strokeWidth={1.75} />
-          Add server
+          Add custom
         </Button>
       </header>
+
+      <McpQuickAdd
+        onPick={(entry) => {
+          setTemplate(entry);
+          setEditing(null);
+          setCreating(true);
+        }}
+      />
 
       <div className="space-y-3">
         {allServers.length === 0 && (
@@ -162,9 +180,11 @@ export function McpSection() {
       <ServerFormDialog
         open={creating || !!editing}
         initial={editing}
+        template={template}
         onClose={() => {
           setCreating(false);
           setEditing(null);
+          setTemplate(null);
         }}
       />
     </div>
