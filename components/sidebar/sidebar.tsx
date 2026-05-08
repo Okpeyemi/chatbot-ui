@@ -11,6 +11,7 @@ import {
   Download01Icon,
   SidebarRight01Icon,
   SidebarLeft01Icon,
+  Pin02Icon,
 } from "@hugeicons/core-free-icons";
 import {
   Tooltip,
@@ -44,13 +45,17 @@ export function Sidebar() {
   const activeId = params?.id;
 
   const conversationsMap = useConversationsStore((s) => s.conversations);
-  const recents = useMemo(
-    () =>
-      Object.values(conversationsMap)
-        .sort((a, b) => b.updatedAt - a.updatedAt)
-        .slice(0, 30),
-    [conversationsMap]
-  );
+  const { pinned, recents } = useMemo(() => {
+    const all = Object.values(conversationsMap);
+    const pinnedList = all
+      .filter((c) => c.pinnedAt)
+      .sort((a, b) => (b.pinnedAt ?? 0) - (a.pinnedAt ?? 0));
+    const restList = all
+      .filter((c) => !c.pinnedAt)
+      .sort((a, b) => b.updatedAt - a.updatedAt)
+      .slice(0, 30);
+    return { pinned: pinnedList, recents: restList };
+  }, [conversationsMap]);
 
   const navItems: NavItem[] = [
     {
@@ -101,7 +106,11 @@ export function Sidebar() {
         </nav>
 
         {expanded ? (
-          <RecentsList recents={recents} activeId={activeId} />
+          <RecentsList
+            pinned={pinned}
+            recents={recents}
+            activeId={activeId}
+          />
         ) : (
           <div className="flex-1" />
         )}
@@ -253,14 +262,22 @@ function NavRow({
   );
 }
 
+type SidebarConversationLike = {
+  id: string;
+  title: string;
+  pinnedAt?: number;
+};
+
 function RecentsList({
+  pinned,
   recents,
   activeId,
 }: {
-  recents: { id: string; title: string }[];
+  pinned: SidebarConversationLike[];
+  recents: SidebarConversationLike[];
   activeId?: string;
 }) {
-  if (recents.length === 0) {
+  if (pinned.length === 0 && recents.length === 0) {
     return (
       <div className="mt-4 flex-1 px-3 text-xs text-sidebar-foreground/40">
         No conversations yet.
@@ -268,24 +285,60 @@ function RecentsList({
     );
   }
   return (
-    <div className="mt-4 flex flex-1 flex-col overflow-hidden">
+    <div className="mt-4 flex flex-1 flex-col gap-3 overflow-hidden">
+      {pinned.length > 0 && (
+        <Section
+          label="Pinned"
+          items={pinned}
+          activeId={activeId}
+          showPinIcon
+        />
+      )}
+      {recents.length > 0 && (
+        <Section label="Recents" items={recents} activeId={activeId} />
+      )}
+    </div>
+  );
+}
+
+function Section({
+  label,
+  items,
+  activeId,
+  showPinIcon,
+}: {
+  label: string;
+  items: SidebarConversationLike[];
+  activeId?: string;
+  showPinIcon?: boolean;
+}) {
+  return (
+    <div className="flex min-h-0 flex-col">
       <h3 className="px-3 pb-1 text-[11px] font-medium uppercase tracking-wider text-sidebar-foreground/40">
-        Recents
+        {label}
       </h3>
-      <ul className="flex-1 space-y-0.5 overflow-y-auto px-1.5 pb-1">
-        {recents.map((c) => (
+      <ul className="space-y-0.5 overflow-y-auto px-1.5 pb-1">
+        {items.map((c) => (
           <li key={c.id}>
             <Link
               href={`/c/${c.id}`}
               className={cn(
-                "block truncate rounded-md px-2 py-1.5 text-sm",
+                "flex items-center gap-1.5 truncate rounded-md px-2 py-1.5 text-sm",
                 "text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-foreground",
                 "transition-colors",
                 c.id === activeId &&
                   "bg-sidebar-accent text-sidebar-foreground font-medium"
               )}
             >
-              {c.title}
+              <span className="min-w-0 flex-1 truncate">{c.title}</span>
+              {showPinIcon && (
+                <HugeiconsIcon
+                  icon={Pin02Icon}
+                  size={11}
+                  strokeWidth={2}
+                  className="shrink-0 text-sidebar-foreground/50"
+                />
+              )}
             </Link>
           </li>
         ))}

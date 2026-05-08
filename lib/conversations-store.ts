@@ -11,6 +11,8 @@ export type StoredConversation = {
   createdAt: number;
   updatedAt: number;
   messages: UIMessage[];
+  /** Pinned conversations float to the top of the sidebar / recents page. */
+  pinnedAt?: number;
 };
 
 type ConversationsState = {
@@ -24,6 +26,7 @@ type ConversationsState = {
   saveMessages: (id: string, messages: UIMessage[]) => void;
   renameConversation: (id: string, title: string) => void;
   deleteConversation: (id: string) => void;
+  togglePin: (id: string) => void;
 };
 
 const noopStorage = {
@@ -85,6 +88,19 @@ export const useConversationsStore = create<ConversationsState>()(
         const next = { ...get().conversations };
         delete next[id];
         set({ conversations: next });
+      },
+      togglePin: (id) => {
+        const existing = get().conversations[id];
+        if (!existing) return;
+        set({
+          conversations: {
+            ...get().conversations,
+            [id]: {
+              ...existing,
+              pinnedAt: existing.pinnedAt ? undefined : Date.now(),
+            },
+          },
+        });
       },
     }),
     {

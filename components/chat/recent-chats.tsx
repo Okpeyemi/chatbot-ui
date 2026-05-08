@@ -2,7 +2,6 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { HugeiconsIcon } from "@hugeicons/react";
 import {
   Search01Icon,
@@ -11,6 +10,9 @@ import {
   PencilEdit02Icon,
   Delete02Icon,
   Download01Icon,
+  PinIcon,
+  PinOffIcon,
+  Pin02Icon,
 } from "@hugeicons/core-free-icons";
 import {
   Dialog,
@@ -53,7 +55,6 @@ function formatRelative(timestamp: number): string {
 }
 
 export function RecentChats() {
-  const router = useRouter();
   const [query, setQuery] = useState("");
   const [renameTarget, setRenameTarget] = useState<StoredConversation | null>(
     null
@@ -71,15 +72,24 @@ export function RecentChats() {
   const deleteConversation = useConversationsStore(
     (s) => s.deleteConversation
   );
+  const togglePin = useConversationsStore((s) => s.togglePin);
 
-  const filtered = useMemo(() => {
-    const all = Object.values(conversationsMap).sort(
-      (a, b) => b.updatedAt - a.updatedAt
-    );
+  const { pinned, recents } = useMemo(() => {
+    const all = Object.values(conversationsMap);
     const q = query.trim().toLowerCase();
-    if (!q) return all;
-    return all.filter((c) => c.title.toLowerCase().includes(q));
+    const matches = q
+      ? all.filter((c) => c.title.toLowerCase().includes(q))
+      : all;
+    const pinnedList = matches
+      .filter((c) => c.pinnedAt)
+      .sort((a, b) => (b.pinnedAt ?? 0) - (a.pinnedAt ?? 0));
+    const restList = matches
+      .filter((c) => !c.pinnedAt)
+      .sort((a, b) => b.updatedAt - a.updatedAt);
+    return { pinned: pinnedList, recents: restList };
   }, [conversationsMap, query]);
+
+  const total = pinned.length + recents.length;
 
   const openRename = (c: StoredConversation) => {
     setRenameTarget(c);
@@ -98,6 +108,107 @@ export function RecentChats() {
     if (!deleteTarget) return;
     deleteConversation(deleteTarget.id);
     setDeleteTarget(null);
+  };
+
+  const renderRow = (c: StoredConversation) => {
+    const isPinned = !!c.pinnedAt;
+    return (
+      <li key={c.id} className="group/row relative">
+        <Link
+          href={`/c/${c.id}`}
+          className={cn(
+            "flex items-center justify-between gap-4 rounded-md px-2 py-3",
+            "hover:bg-card/60 transition-colors"
+          )}
+        >
+          <span className="flex min-w-0 flex-1 items-center gap-1.5 text-sm text-foreground">
+            {isPinned && (
+              <HugeiconsIcon
+                icon={Pin02Icon}
+                size={11}
+                strokeWidth={2}
+                className="shrink-0 text-muted-foreground"
+              />
+            )}
+            <span className="min-w-0 truncate">{c.title}</span>
+          </span>
+          <span
+            className={cn(
+              "shrink-0 text-xs text-muted-foreground transition-transform duration-150",
+              "group-hover/row:-translate-x-8 group-focus-within/row:-translate-x-8"
+            )}
+          >
+            {formatRelative(c.updatedAt)}
+          </span>
+        </Link>
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            render={
+              <button
+                type="button"
+                aria-label={`Actions for ${c.title}`}
+                className={cn(
+                  "absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-1.5",
+                  "text-muted-foreground opacity-0 transition-opacity",
+                  "hover:bg-accent hover:text-foreground",
+                  "group-hover/row:opacity-100 focus:opacity-100"
+                )}
+              >
+                <HugeiconsIcon
+                  icon={MoreHorizontalIcon}
+                  size={16}
+                  strokeWidth={2}
+                />
+              </button>
+            }
+          />
+          <DropdownMenuContent align="end" className="w-48">
+            <DropdownMenuItem onClick={() => togglePin(c.id)}>
+              <HugeiconsIcon
+                icon={isPinned ? PinOffIcon : PinIcon}
+                size={14}
+                strokeWidth={1.75}
+              />
+              {isPinned ? "Unpin" : "Pin"}
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => openRename(c)}>
+              <HugeiconsIcon
+                icon={PencilEdit02Icon}
+                size={14}
+                strokeWidth={1.75}
+              />
+              Rename
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() =>
+                downloadString(
+                  conversationToMarkdown(c, c.messages),
+                  filenameFor(c.title)
+                )
+              }
+            >
+              <HugeiconsIcon
+                icon={Download01Icon}
+                size={14}
+                strokeWidth={1.75}
+              />
+              Download as Markdown
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() => setDeleteTarget(c)}
+              className="text-destructive focus:text-destructive"
+            >
+              <HugeiconsIcon
+                icon={Delete02Icon}
+                size={14}
+                strokeWidth={1.75}
+              />
+              Delete
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </li>
+    );
   };
 
   return (
@@ -135,7 +246,7 @@ export function RecentChats() {
       </div>
 
       <div className="flex-1 overflow-y-auto">
-        {hasHydrated && filtered.length === 0 && (
+        {hasHydrated && total === 0 && (
           <p className="px-1 py-8 text-center text-sm text-muted-foreground">
             {query
               ? `No chat matches “${query}”.`
@@ -143,89 +254,24 @@ export function RecentChats() {
           </p>
         )}
 
-        <ul className="divide-y divide-border/40">
-          {filtered.map((c) => (
-            <li key={c.id} className="group/row relative">
-              <Link
-                href={`/c/${c.id}`}
-                className={cn(
-                  "flex items-center justify-between gap-4 rounded-md px-2 py-3",
-                  "hover:bg-card/60 transition-colors"
-                )}
-              >
-                <span className="min-w-0 flex-1 truncate text-sm text-foreground">
-                  {c.title}
-                </span>
-                <span
-                  className={cn(
-                    "shrink-0 text-xs text-muted-foreground transition-transform duration-150",
-                    "group-hover/row:-translate-x-8 group-focus-within/row:-translate-x-8"
-                  )}
-                >
-                  {formatRelative(c.updatedAt)}
-                </span>
-              </Link>
-              <DropdownMenu>
-                <DropdownMenuTrigger
-                  render={
-                    <button
-                      type="button"
-                      aria-label={`Actions for ${c.title}`}
-                      className={cn(
-                        "absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-1.5",
-                        "text-muted-foreground opacity-0 transition-opacity",
-                        "hover:bg-accent hover:text-foreground",
-                        "group-hover/row:opacity-100 focus:opacity-100"
-                      )}
-                    >
-                      <HugeiconsIcon
-                        icon={MoreHorizontalIcon}
-                        size={16}
-                        strokeWidth={2}
-                      />
-                    </button>
-                  }
-                />
-                <DropdownMenuContent align="end" className="w-48">
-                  <DropdownMenuItem onClick={() => openRename(c)}>
-                    <HugeiconsIcon
-                      icon={PencilEdit02Icon}
-                      size={14}
-                      strokeWidth={1.75}
-                    />
-                    Rename
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={() =>
-                      downloadString(
-                        conversationToMarkdown(c, c.messages),
-                        filenameFor(c.title)
-                      )
-                    }
-                  >
-                    <HugeiconsIcon
-                      icon={Download01Icon}
-                      size={14}
-                      strokeWidth={1.75}
-                    />
-                    Download as Markdown
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={() => setDeleteTarget(c)}
-                    className="text-destructive focus:text-destructive"
-                  >
-                    <HugeiconsIcon
-                      icon={Delete02Icon}
-                      size={14}
-                      strokeWidth={1.75}
-                    />
-                    Delete
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </li>
-          ))}
-        </ul>
+        {pinned.length > 0 && (
+          <section className="mb-4">
+            <h2 className="px-2 pb-1 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+              Pinned
+            </h2>
+            <ul className="divide-y divide-border/40">{pinned.map(renderRow)}</ul>
+          </section>
+        )}
+        {recents.length > 0 && (
+          <section>
+            {pinned.length > 0 && (
+              <h2 className="px-2 pb-1 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                All chats
+              </h2>
+            )}
+            <ul className="divide-y divide-border/40">{recents.map(renderRow)}</ul>
+          </section>
+        )}
       </div>
 
       <Dialog
