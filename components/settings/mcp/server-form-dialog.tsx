@@ -254,8 +254,8 @@ export function ServerFormDialog({
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="max-w-2xl">
-        <DialogHeader>
+      <DialogContent className="flex max-h-[85vh] w-[min(95vw,1100px)] max-w-[1100px] flex-col gap-0 p-0 sm:max-w-[1100px]">
+        <DialogHeader className="border-b border-border/40 p-4">
           <DialogTitle>
             {initial ? `Edit ${initial.name}` : "Add MCP server"}
           </DialogTitle>
@@ -265,7 +265,7 @@ export function ServerFormDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4">
+        <div className="flex-1 space-y-4 overflow-y-auto p-4">
           {template && template.needs && template.needs.length > 0 && (
             <div className="rounded-md border border-amber-500/40 bg-amber-500/5 px-3 py-2 text-xs text-foreground">
               <div className="mb-1 font-medium text-amber-500">
@@ -397,7 +397,10 @@ export function ServerFormDialog({
           )}
 
           <div className="flex items-center justify-between rounded-md border border-border/40 bg-muted/20 px-3 py-2">
-            <label className="text-sm font-medium" htmlFor="mcp-enabled" className="cursor-pointer">
+            <label
+              className="cursor-pointer text-sm font-medium"
+              htmlFor="mcp-enabled"
+            >
               Enabled
               <span className="ml-2 text-xs text-muted-foreground">
                 Disabled servers stay configured but their tools are not
@@ -414,7 +417,7 @@ export function ServerFormDialog({
           <TestBlock state={test} onTest={runTest} />
         </div>
 
-        <DialogFooter>
+        <DialogFooter className="border-t border-border/40 p-4">
           <Button type="button" variant="ghost" onClick={onClose}>
             Cancel
           </Button>

@@ -159,7 +159,8 @@ export function ChatView({
                     part.type === "tool-wikipedia" ||
                     part.type === "tool-generateImage" ||
                     part.type === "tool-runCode" ||
-                    part.type === "tool-rememberFact"
+                    part.type === "tool-rememberFact" ||
+                    part.type === "dynamic-tool"
                   ) {
                     return <ToolTrace key={key} part={part} />;
                   }

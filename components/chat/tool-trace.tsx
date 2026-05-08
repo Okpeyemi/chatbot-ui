@@ -26,6 +26,8 @@ type ToolPart = {
   input?: unknown;
   output?: unknown;
   errorText?: string;
+  /** Present on `dynamic-tool` parts (MCP tools, custom dynamic tools). */
+  toolName?: string;
 };
 
 type WebSearchInput = { query?: string; maxResults?: number };
@@ -66,6 +68,8 @@ export function ToolTrace({ part }: { part: ToolPart }) {
       return <RunCodeTrace part={part} />;
     case "tool-rememberFact":
       return <RememberFactTrace part={part} />;
+    case "dynamic-tool":
+      return <DynamicToolTrace part={part} />;
     default:
       return null;
   }
@@ -445,6 +449,71 @@ function RunCodeTrace({ part }: { part: ToolPart }) {
           )}
           {output && !output.ok && (
             <div className="text-destructive">{output.error}</div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function DynamicToolTrace({ part }: { part: ToolPart }) {
+  const [open, setOpen] = useState(false);
+  const status = statusOf(part.state);
+  const name = part.toolName ?? "tool";
+  // MCP tools are namespaced as `mcp_<server>__<tool>`. Pretty-print:
+  const pretty = (() => {
+    const m = name.match(/^mcp_([^_]+(?:_[^_]+)*?)__(.+)$/);
+    return m ? { server: m[1], tool: m[2] } : null;
+  })();
+
+  const label =
+    status === "running"
+      ? `Running ${pretty ? `${pretty.tool} on ${pretty.server}` : name}…`
+      : status === "error"
+        ? `${pretty ? pretty.tool : name} failed`
+        : `${pretty ? `${pretty.tool} on ${pretty.server}` : name}`;
+
+  return (
+    <div className="rounded-md border border-border/40 bg-muted/30 px-3 py-1.5 text-xs">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className="flex w-full items-center gap-2 text-muted-foreground hover:text-foreground"
+      >
+        <HugeiconsIcon icon={Globe02Icon} size={14} strokeWidth={1.75} />
+        <StatusIcon status={status} />
+        <span className="flex-1 truncate text-left">{label}</span>
+        <HugeiconsIcon
+          icon={ArrowDown01Icon}
+          size={12}
+          strokeWidth={2}
+          className={cn("transition-transform", open ? "rotate-180" : "")}
+        />
+      </button>
+      {open && (
+        <div className="mt-2 space-y-2 text-foreground">
+          {part.input != null && (
+            <div>
+              <div className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                input
+              </div>
+              <pre className="max-h-40 overflow-auto rounded bg-background/60 p-2 font-mono text-[11px] leading-relaxed">
+                {JSON.stringify(part.input, null, 2)}
+              </pre>
+            </div>
+          )}
+          {part.output != null && (
+            <div>
+              <div className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                output
+              </div>
+              <pre className="max-h-72 overflow-auto rounded bg-background/60 p-2 font-mono text-[11px] leading-relaxed">
+                {JSON.stringify(part.output, null, 2)}
+              </pre>
+            </div>
+          )}
+          {part.errorText && (
+            <div className="text-destructive">{part.errorText}</div>
           )}
         </div>
       )}
