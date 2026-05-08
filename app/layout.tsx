@@ -3,6 +3,8 @@ import { Sen, Syne, JetBrains_Mono } from "next/font/google";
 import { ThemeProvider } from "@/components/providers/theme-provider";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Toaster } from "@/components/ui/sonner";
+import { KeyboardShortcutsProvider } from "@/components/keyboard-shortcuts-dialog";
+import { HighlightStyles } from "@/components/highlight-styles";
 import "./globals.css";
 
 const sans = Sen({
@@ -46,8 +48,11 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
-          <TooltipProvider delayDuration={200}>{children}</TooltipProvider>
+          <TooltipProvider delayDuration={200}>
+            <KeyboardShortcutsProvider>{children}</KeyboardShortcutsProvider>
+          </TooltipProvider>
           <Toaster position="top-right" richColors closeButton />
+          <HighlightStyles />
         </ThemeProvider>
       </body>
     </html>

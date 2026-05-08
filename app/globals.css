@@ -176,15 +176,8 @@
   }
 }
 
-/* In-conversation search (CSS Custom Highlight API). */
-::highlight(search) {
-  background-color: rgba(255, 224, 102, 0.35);
-  color: inherit;
-}
-::highlight(search-active) {
-  background-color: var(--accent-brand);
-  color: var(--primary-foreground);
-}
+/* In-conversation search highlight styles live in a runtime <style> tag
+   in app/layout.tsx — Lightning CSS doesn't parse `::highlight()`. */
 
 @keyframes cursor-blink {
   0%,
