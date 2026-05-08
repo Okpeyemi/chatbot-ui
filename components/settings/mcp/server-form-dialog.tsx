@@ -254,7 +254,7 @@ export function ServerFormDialog({
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="flex max-h-[85vh] w-[min(95vw,1100px)] max-w-[1100px] flex-col gap-0 p-0 sm:max-w-[1100px]">
+      <DialogContent className="flex max-h-[85vh] w-300 flex-col gap-0 p-0 sm:max-w-[700px]">
         <DialogHeader className="border-b border-border/40 p-4">
           <DialogTitle>
             {initial ? `Edit ${initial.name}` : "Add MCP server"}
@@ -417,7 +417,7 @@ export function ServerFormDialog({
           <TestBlock state={test} onTest={runTest} />
         </div>
 
-        <DialogFooter className="border-t border-border/40 p-4">
+        <DialogFooter className="border-t border-border/40">
           <Button type="button" variant="ghost" onClick={onClose}>
             Cancel
           </Button>

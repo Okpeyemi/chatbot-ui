@@ -1,7 +1,7 @@
 import Link from "next/link";
 
 const SECTIONS = [
-  { id: "mcp", label: "MCP servers", href: "/settings/mcp" },
+  { id: "mcp", label: "MCP servers", href: "/settings" },
 ];
 
 export default function SettingsLayout({
