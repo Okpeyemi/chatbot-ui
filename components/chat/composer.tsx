@@ -25,6 +25,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { ModelSelector } from "@/components/chat/model-selector";
+import { PersonaSelector } from "@/components/chat/persona-selector";
 import {
   ACCEPTED_FILE_TYPES,
   MAX_FILE_SIZE,
@@ -401,6 +402,7 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
             )}
           </span>
           <div className="flex items-center gap-1">
+            <PersonaSelector />
             <ModelSelector value={modelId} onChange={onModelChange} />
             <Button
               type="button"

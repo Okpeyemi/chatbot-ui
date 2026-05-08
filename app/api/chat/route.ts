@@ -21,6 +21,8 @@ type ChatRequestBody = {
   messages: UIMessage[];
   modelId?: string;
   system?: string;
+  /** Optional persona prompt prepended to the assembled system prompt. */
+  persona?: string;
   memories?: string[];
   mcpServers?: unknown;
 };
@@ -38,6 +40,7 @@ export async function POST(req: Request) {
     messages,
     modelId = DEFAULT_MODEL_ID,
     system,
+    persona,
     memories,
     mcpServers: rawMcpServers,
   } = body;
@@ -154,10 +157,16 @@ export async function POST(req: Request) {
       ].join("\n")
     : "";
 
+  // Persona prepends to whatever system prompt we end up with — gives the
+  // model an identity / tone before it sees the tool catalogue.
+  const personaPrefix =
+    persona && persona.trim() ? `${persona.trim()}\n\n` : "";
+
   try {
     const result = streamText({
       model,
-      system: (system ?? baseSystem) + memoryContext + mcpContext,
+      system:
+        personaPrefix + (system ?? baseSystem) + memoryContext + mcpContext,
       messages: modelMessages,
       tools: { ...builtinTools, ...mcpTools },
       stopWhen: stepCountIs(8),

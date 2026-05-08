@@ -17,6 +17,10 @@ import {
 import { useMemoryStore } from "@/lib/memory-store";
 import { useMcpStore } from "@/lib/mcp-store";
 import {
+  getActivePersona,
+  usePersonasStore,
+} from "@/lib/personas-store";
+import {
   conversationToMarkdown,
   downloadString,
   filenameFor,
@@ -46,6 +50,8 @@ export function ChatContainer({ initialChatId }: ChatContainerProps) {
     () => mcpServers.filter((s) => s.enabled),
     [mcpServers]
   );
+
+  const activePersonaPrompt = usePersonasStore((s) => getActivePersona(s).prompt);
 
   const [modelId, setModelId] = useState(
     stored?.modelId ?? DEFAULT_MODEL_ID
@@ -144,7 +150,7 @@ export function ChatContainer({ initialChatId }: ChatContainerProps) {
     //    the edited user message, regenerate() (no messageId) keeps the
     //    truncated state and just makes a request.
     try {
-      await regenerate({ body: { modelId, memories: memoryTexts, mcpServers: enabledMcpServers } });
+      await regenerate({ body: { modelId, memories: memoryTexts, mcpServers: enabledMcpServers, persona: activePersonaPrompt } });
     } catch (err) {
       toast.error("Couldn’t regenerate", {
         description: err instanceof Error ? err.message : String(err),
@@ -225,7 +231,7 @@ export function ChatContainer({ initialChatId }: ChatContainerProps) {
     // history and the assistant can react to it.
     sendMessage(
       { role: "user", parts: [{ type: "text", text: choice }] },
-      { body: { modelId, memories: memoryTexts, mcpServers: enabledMcpServers } }
+      { body: { modelId, memories: memoryTexts, mcpServers: enabledMcpServers, persona: activePersonaPrompt } }
     );
   };
 
@@ -300,7 +306,7 @@ export function ChatContainer({ initialChatId }: ChatContainerProps) {
       title: stored?.title ?? titleFromMessage ?? "New chat",
     });
 
-    sendMessage({ role: "user", parts: userParts }, { body: { modelId, memories: memoryTexts, mcpServers: enabledMcpServers } });
+    sendMessage({ role: "user", parts: userParts }, { body: { modelId, memories: memoryTexts, mcpServers: enabledMcpServers, persona: activePersonaPrompt } });
   };
 
   // Auto-derive the title from the first assistant exchange if the user
@@ -355,7 +361,7 @@ export function ChatContainer({ initialChatId }: ChatContainerProps) {
       onModelChange={setModelId}
       onSubmit={handleSubmit}
       onStop={stop}
-      onRegenerate={() => regenerate({ body: { modelId, memories: memoryTexts, mcpServers: enabledMcpServers } })}
+      onRegenerate={() => regenerate({ body: { modelId, memories: memoryTexts, mcpServers: enabledMcpServers, persona: activePersonaPrompt } })}
       onEditMessage={handleEditMessage}
       onForkMessage={handleForkMessage}
       onDownload={() =>
