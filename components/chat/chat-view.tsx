@@ -105,7 +105,7 @@ export function ChatView({
   }, [messages.length]);
 
   return (
-    <div className="relative flex h-full w-full flex-col">
+    <div className="relative flex h-full min-h-0 w-full flex-col overflow-hidden">
       {onDownload && messages.length > 0 && (
         <div className="pointer-events-none absolute right-4 top-3 z-10">
           <Tooltip>
@@ -136,7 +136,7 @@ export function ChatView({
         onClose={() => setSearchOpen(false)}
         containerRef={conversationRef}
       />
-      <div ref={conversationRef} className="flex flex-1 flex-col">
+      <div ref={conversationRef} className="flex min-h-0 flex-1 flex-col">
       <Conversation className="flex-1">
         <ConversationContent className="mx-auto w-full max-w-3xl gap-6 px-4 py-6">
           {messages.map((message) => {
