@@ -1,6 +1,7 @@
 "use client";
 
 import { type ReactElement } from "react";
+import { useRouter } from "next/navigation";
 import { HugeiconsIcon } from "@hugeicons/react";
 import {
   Settings01Icon,
@@ -50,6 +51,7 @@ export function AccountMenu({
   side = "top",
   align = "start",
 }: AccountMenuProps) {
+  const router = useRouter();
   const language = useUIStore((s) => s.language);
   const setLanguage = useUIStore((s) => s.setLanguage);
   // Resolve the active language for display: empty store = "use the
@@ -79,7 +81,7 @@ export function AccountMenu({
 
         <DropdownMenuSeparator />
 
-        <DropdownMenuItem disabled>
+        <DropdownMenuItem onClick={() => router.push("/settings")}>
           <HugeiconsIcon icon={Settings01Icon} size={14} strokeWidth={1.75} />
           Settings
           <span className="ml-auto text-[11px] text-muted-foreground">

@@ -15,6 +15,7 @@ import {
   useConversationsStore,
 } from "@/lib/conversations-store";
 import { useMemoryStore } from "@/lib/memory-store";
+import { useMcpStore } from "@/lib/mcp-store";
 import {
   conversationToMarkdown,
   downloadString,
@@ -39,6 +40,12 @@ export function ChatContainer({ initialChatId }: ChatContainerProps) {
   const memories = useMemoryStore((s) => s.memories);
   const addMemory = useMemoryStore((s) => s.addMemory);
   const memoryTexts = useMemo(() => memories.map((m) => m.text), [memories]);
+
+  const mcpServers = useMcpStore((s) => s.servers);
+  const enabledMcpServers = useMemo(
+    () => mcpServers.filter((s) => s.enabled),
+    [mcpServers]
+  );
 
   const [modelId, setModelId] = useState(
     stored?.modelId ?? DEFAULT_MODEL_ID
@@ -137,12 +144,34 @@ export function ChatContainer({ initialChatId }: ChatContainerProps) {
     //    the edited user message, regenerate() (no messageId) keeps the
     //    truncated state and just makes a request.
     try {
-      await regenerate({ body: { modelId, memories: memoryTexts } });
+      await regenerate({ body: { modelId, memories: memoryTexts, mcpServers: enabledMcpServers } });
     } catch (err) {
       toast.error("Couldn’t regenerate", {
         description: err instanceof Error ? err.message : String(err),
       });
     }
+  };
+
+  const handleForkMessage = (messageId: string) => {
+    const idx = messages.findIndex((m) => m.id === messageId);
+    if (idx === -1) return;
+    // Take everything up to and including the picked message — that's the
+    // shared history the new branch inherits.
+    const slice = messages.slice(0, idx + 1);
+
+    // Deep-clone via structuredClone so the new chat owns its own messages
+    // array (the live one is mutable in the chat-store).
+    const cloned = structuredClone(slice);
+
+    const newId = nanoid();
+    upsertConversation({
+      id: newId,
+      modelId,
+      title: deriveTitle(cloned),
+    });
+    useConversationsStore.getState().saveMessages(newId, cloned);
+    toast.success("Branched conversation");
+    router.push(`/c/${newId}`);
   };
 
   // Detect a pending `presentChoices` tool call in the most recent assistant
@@ -196,7 +225,7 @@ export function ChatContainer({ initialChatId }: ChatContainerProps) {
     // history and the assistant can react to it.
     sendMessage(
       { role: "user", parts: [{ type: "text", text: choice }] },
-      { body: { modelId, memories: memoryTexts } }
+      { body: { modelId, memories: memoryTexts, mcpServers: enabledMcpServers } }
     );
   };
 
@@ -271,7 +300,7 @@ export function ChatContainer({ initialChatId }: ChatContainerProps) {
       title: stored?.title ?? titleFromMessage ?? "New chat",
     });
 
-    sendMessage({ role: "user", parts: userParts }, { body: { modelId, memories: memoryTexts } });
+    sendMessage({ role: "user", parts: userParts }, { body: { modelId, memories: memoryTexts, mcpServers: enabledMcpServers } });
   };
 
   // Auto-derive the title from the first assistant exchange if the user
@@ -326,8 +355,9 @@ export function ChatContainer({ initialChatId }: ChatContainerProps) {
       onModelChange={setModelId}
       onSubmit={handleSubmit}
       onStop={stop}
-      onRegenerate={() => regenerate({ body: { modelId, memories: memoryTexts } })}
+      onRegenerate={() => regenerate({ body: { modelId, memories: memoryTexts, mcpServers: enabledMcpServers } })}
       onEditMessage={handleEditMessage}
+      onForkMessage={handleForkMessage}
       onDownload={() =>
         downloadString(
           conversationToMarkdown(stored ?? null, messages),

@@ -7,6 +7,7 @@ import {
   CopyCheckIcon,
   RefreshIcon,
   PencilEdit02Icon,
+  GitBranchIcon,
 } from "@hugeicons/core-free-icons";
 import {
   Tooltip,
@@ -29,6 +30,8 @@ type MessageActionsProps = {
   onRegenerate?: () => void;
   canEdit?: boolean;
   onEdit?: () => void;
+  canFork?: boolean;
+  onFork?: () => void;
   align?: "start" | "end";
 };
 
@@ -38,6 +41,8 @@ export function MessageActions({
   onRegenerate,
   canEdit,
   onEdit,
+  canFork,
+  onFork,
   align = "start",
 }: MessageActionsProps) {
   const [copied, setCopied] = useState(false);
@@ -68,6 +73,13 @@ export function MessageActions({
       />
       {canEdit && onEdit && (
         <ActionButton label="Edit" onClick={onEdit} icon={PencilEdit02Icon} />
+      )}
+      {canFork && onFork && (
+        <ActionButton
+          label="Branch from here"
+          onClick={onFork}
+          icon={GitBranchIcon}
+        />
       )}
       {canRegenerate && onRegenerate && (
         <ActionButton
