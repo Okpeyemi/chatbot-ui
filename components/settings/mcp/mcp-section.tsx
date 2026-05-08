@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { HugeiconsIcon } from "@hugeicons/react";
 import {
   PlusSignIcon,
@@ -9,6 +9,8 @@ import {
   Tick02Icon,
   Cancel01Icon,
   Plug01Icon,
+  RefreshIcon,
+  ArrowDown01Icon,
 } from "@hugeicons/core-free-icons";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
@@ -19,6 +21,11 @@ import { ServerFormDialog } from "@/components/settings/mcp/server-form-dialog";
 import { McpQuickAdd } from "@/components/settings/mcp/mcp-quick-add";
 import { cn } from "@/lib/utils";
 
+type ProbeState =
+  | { kind: "loading" }
+  | { kind: "ok"; tools: { name: string; description?: string }[] }
+  | { kind: "error"; message: string };
+
 export function McpSection() {
   const uiServers = useMcpStore((s) => s.servers);
   const toggleServer = useMcpStore((s) => s.toggleServer);
@@ -28,6 +35,8 @@ export function McpSection() {
   const [editing, setEditing] = useState<McpServerConfig | null>(null);
   const [creating, setCreating] = useState(false);
   const [template, setTemplate] = useState<McpRegistryEntry | null>(null);
+  const [probes, setProbes] = useState<Record<string, ProbeState>>({});
+  const [openProbes, setOpenProbes] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     let alive = true;
@@ -45,6 +54,53 @@ export function McpSection() {
   }, []);
 
   const allServers = [...fileServers, ...uiServers];
+
+  const probeServer = useCallback(async (server: McpServerConfig) => {
+    setProbes((p) => ({ ...p, [server.id]: { kind: "loading" } }));
+    try {
+      const res = await fetch("/api/mcp/test", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(server),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        setProbes((p) => ({
+          ...p,
+          [server.id]: { kind: "ok", tools: data.tools ?? [] },
+        }));
+      } else {
+        setProbes((p) => ({
+          ...p,
+          [server.id]: {
+            kind: "error",
+            message: data.error ?? "Unknown error",
+          },
+        }));
+      }
+    } catch (err) {
+      setProbes((p) => ({
+        ...p,
+        [server.id]: {
+          kind: "error",
+          message: err instanceof Error ? err.message : String(err),
+        },
+      }));
+    }
+  }, []);
+
+  // Auto-probe enabled servers once their config lands. We key on the
+  // serialised config so re-saving an entry triggers a refresh.
+  useEffect(() => {
+    for (const server of allServers) {
+      if (!server.enabled) continue;
+      if (probes[server.id]) continue;
+      probeServer(server);
+    }
+    // We intentionally don't watch `probes` here to avoid re-probing every
+    // time we set state; only new server ids trigger work.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [allServers.map((s) => `${s.id}:${s.enabled ? 1 : 0}`).join("|")]);
 
   return (
     <div className="space-y-6">
@@ -90,86 +146,118 @@ export function McpSection() {
 
         {allServers.map((server) => {
           const isFile = server.source === "file";
+          const probe = probes[server.id];
+          const isOpen = openProbes[server.id] ?? false;
           return (
             <div
               key={server.id}
               className={cn(
-                "flex items-start gap-3 rounded-lg border border-border/60 bg-card/40 p-4",
+                "rounded-lg border border-border/60 bg-card/40",
                 !server.enabled && "opacity-60"
               )}
             >
-              <div className="min-w-0 flex-1 space-y-1.5">
-                <div className="flex items-center gap-2">
-                  <span className="font-medium text-foreground">
-                    {server.name}
-                  </span>
-                  <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-                    {TRANSPORT_LABEL[server.transport]}
-                  </span>
-                  {isFile && (
-                    <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-                      from mcp.json
+              <div className="flex items-start gap-3 p-4">
+                <div className="min-w-0 flex-1 space-y-1.5">
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium text-foreground">
+                      {server.name}
                     </span>
-                  )}
+                    <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                      {TRANSPORT_LABEL[server.transport]}
+                    </span>
+                    {isFile && (
+                      <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                        from mcp.json
+                      </span>
+                    )}
+                  </div>
+                  <div className="truncate text-xs text-muted-foreground">
+                    {server.transport === "stdio"
+                      ? `${server.command ?? ""}${
+                          server.args?.length
+                            ? " " + server.args.join(" ")
+                            : ""
+                        }`
+                      : server.url}
+                  </div>
                 </div>
-                <div className="truncate text-xs text-muted-foreground">
-                  {server.transport === "stdio"
-                    ? `${server.command ?? ""}${
-                        server.args?.length
-                          ? " " + server.args.join(" ")
-                          : ""
-                      }`
-                    : server.url}
+
+                <div className="flex shrink-0 items-center gap-2">
+                  <Switch
+                    checked={server.enabled}
+                    onCheckedChange={(checked) =>
+                      !isFile && toggleServer(server.id, checked)
+                    }
+                    disabled={isFile}
+                    aria-label={`Enable ${server.name}`}
+                  />
+                  <Button
+                    type="button"
+                    size="icon-sm"
+                    variant="ghost"
+                    onClick={() => probeServer(server)}
+                    aria-label={`Refresh tools for ${server.name}`}
+                    disabled={!server.enabled}
+                  >
+                    <HugeiconsIcon
+                      icon={RefreshIcon}
+                      size={14}
+                      strokeWidth={1.75}
+                    />
+                  </Button>
+                  {!isFile && (
+                    <>
+                      <Button
+                        type="button"
+                        size="icon-sm"
+                        variant="ghost"
+                        onClick={() => setEditing(server)}
+                        aria-label={`Edit ${server.name}`}
+                      >
+                        <HugeiconsIcon
+                          icon={PencilEdit02Icon}
+                          size={14}
+                          strokeWidth={1.75}
+                        />
+                      </Button>
+                      <Button
+                        type="button"
+                        size="icon-sm"
+                        variant="ghost"
+                        onClick={() => {
+                          if (
+                            confirm(`Remove “${server.name}”? Its tools will no longer be available.`)
+                          ) {
+                            removeServer(server.id);
+                          }
+                        }}
+                        aria-label={`Remove ${server.name}`}
+                        className="text-destructive hover:text-destructive"
+                      >
+                        <HugeiconsIcon
+                          icon={Delete02Icon}
+                          size={14}
+                          strokeWidth={1.75}
+                        />
+                      </Button>
+                    </>
+                  )}
                 </div>
               </div>
 
-              <div className="flex shrink-0 items-center gap-2">
-                <Switch
-                  checked={server.enabled}
-                  onCheckedChange={(checked) =>
-                    !isFile && toggleServer(server.id, checked)
+              {server.enabled && probe && (
+                <ProbeView
+                  serverName={server.name}
+                  probe={probe}
+                  open={isOpen}
+                  onToggle={() =>
+                    setOpenProbes((p) => ({
+                      ...p,
+                      [server.id]: !isOpen,
+                    }))
                   }
-                  disabled={isFile}
-                  aria-label={`Enable ${server.name}`}
                 />
-                {!isFile && (
-                  <>
-                    <Button
-                      type="button"
-                      size="icon-sm"
-                      variant="ghost"
-                      onClick={() => setEditing(server)}
-                      aria-label={`Edit ${server.name}`}
-                    >
-                      <HugeiconsIcon
-                        icon={PencilEdit02Icon}
-                        size={14}
-                        strokeWidth={1.75}
-                      />
-                    </Button>
-                    <Button
-                      type="button"
-                      size="icon-sm"
-                      variant="ghost"
-                      onClick={() => {
-                        if (
-                          confirm(`Remove “${server.name}”? Its tools will no longer be available.`)
-                        ) {
-                          removeServer(server.id);
-                        }
-                      }}
-                      aria-label={`Remove ${server.name}`}
-                      className="text-destructive hover:text-destructive"
-                    >
-                      <HugeiconsIcon
-                        icon={Delete02Icon}
-                        size={14}
-                        strokeWidth={1.75}
-                      />
-                    </Button>
-                  </>
-                )}
-              </div>
+              )}
             </div>
           );
         })}
@@ -189,6 +277,90 @@ export function McpSection() {
       />
     </div>
   );
+}
+
+function ProbeView({
+  serverName,
+  probe,
+  open,
+  onToggle,
+}: {
+  serverName: string;
+  probe: ProbeState;
+  open: boolean;
+  onToggle: () => void;
+}) {
+  const summary = (() => {
+    if (probe.kind === "loading") return "Discovering tools…";
+    if (probe.kind === "error") return "Could not reach this server";
+    return `${probe.tools.length} tool${probe.tools.length === 1 ? "" : "s"} available`;
+  })();
+
+  return (
+    <div className="border-t border-border/40">
+      <button
+        type="button"
+        onClick={onToggle}
+        className={cn(
+          "flex w-full items-center gap-2 px-4 py-2 text-xs",
+          probe.kind === "error"
+            ? "text-destructive hover:bg-destructive/5"
+            : "text-muted-foreground hover:bg-accent/40 hover:text-foreground"
+        )}
+      >
+        <HugeiconsIcon
+          icon={probe.kind === "error" ? Cancel01Icon : Plug01Icon}
+          size={12}
+          strokeWidth={1.75}
+        />
+        <span className="flex-1 truncate text-left">{summary}</span>
+        {(probe.kind === "ok" && probe.tools.length > 0) ||
+        probe.kind === "error" ? (
+          <HugeiconsIcon
+            icon={ArrowDown01Icon}
+            size={12}
+            strokeWidth={2}
+            className={cn("transition-transform", open ? "rotate-180" : "")}
+          />
+        ) : null}
+      </button>
+      {open && probe.kind === "ok" && probe.tools.length > 0 && (
+        <ul className="space-y-1.5 px-4 pb-3 text-xs">
+          {probe.tools.map((t) => {
+            const namespaced = `mcp_${slugifyForId(serverName)}__${t.name}`;
+            return (
+              <li
+                key={t.name}
+                className="rounded border border-border/40 bg-background/40 px-2 py-1.5"
+              >
+                <code className="font-mono text-[11px] text-foreground">
+                  {namespaced}
+                </code>
+                {t.description && (
+                  <div className="mt-0.5 text-muted-foreground">
+                    {t.description}
+                  </div>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+      )}
+      {open && probe.kind === "error" && (
+        <pre className="mx-4 mb-3 max-h-40 overflow-auto rounded bg-destructive/5 p-2 font-mono text-[11px] text-destructive">
+          {probe.message}
+        </pre>
+      )}
+    </div>
+  );
+}
+
+function slugifyForId(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "")
+    .slice(0, 32);
 }
 
 function Legend() {
