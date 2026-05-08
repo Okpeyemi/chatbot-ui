@@ -44,6 +44,7 @@ type ChatViewProps = {
   onStop?: () => void;
   onRegenerate?: () => void;
   onEditMessage?: (messageId: string, newText: string) => void;
+  onForkMessage?: (messageId: string) => void;
   onDownload?: () => void;
   pendingChoice?: PendingChoice | null;
   onChoiceSelect?: (choice: string) => void;
@@ -66,6 +67,7 @@ export function ChatView({
   onStop,
   onRegenerate,
   onEditMessage,
+  onForkMessage,
   onDownload,
   pendingChoice,
   onChoiceSelect,
@@ -207,17 +209,20 @@ export function ChatView({
                   message={message}
                   canRegenerate={message.id === lastAssistantId && !!onRegenerate}
                   onRegenerate={onRegenerate}
+                  canFork={!!onForkMessage}
+                  onFork={() => onForkMessage?.(message.id)}
                 />
               )}
               {!isEditing &&
                 message.role === "user" &&
-                !isStreaming &&
-                onEditMessage && (
+                !isStreaming && (
                   <MessageActions
                     align="end"
                     message={message}
-                    canEdit
+                    canEdit={!!onEditMessage}
                     onEdit={() => setEditingId(message.id)}
+                    canFork={!!onForkMessage}
+                    onFork={() => onForkMessage?.(message.id)}
                   />
                 )}
             </Message>

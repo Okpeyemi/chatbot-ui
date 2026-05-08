@@ -152,6 +152,28 @@ export function ChatContainer({ initialChatId }: ChatContainerProps) {
     }
   };
 
+  const handleForkMessage = (messageId: string) => {
+    const idx = messages.findIndex((m) => m.id === messageId);
+    if (idx === -1) return;
+    // Take everything up to and including the picked message — that's the
+    // shared history the new branch inherits.
+    const slice = messages.slice(0, idx + 1);
+
+    // Deep-clone via structuredClone so the new chat owns its own messages
+    // array (the live one is mutable in the chat-store).
+    const cloned = structuredClone(slice);
+
+    const newId = nanoid();
+    upsertConversation({
+      id: newId,
+      modelId,
+      title: deriveTitle(cloned),
+    });
+    useConversationsStore.getState().saveMessages(newId, cloned);
+    toast.success("Branched conversation");
+    router.push(`/c/${newId}`);
+  };
+
   // Detect a pending `presentChoices` tool call in the most recent assistant
   // message that hasn't been answered yet.
   const pendingChoice = useMemo(() => {
@@ -335,6 +357,7 @@ export function ChatContainer({ initialChatId }: ChatContainerProps) {
       onStop={stop}
       onRegenerate={() => regenerate({ body: { modelId, memories: memoryTexts, mcpServers: enabledMcpServers } })}
       onEditMessage={handleEditMessage}
+      onForkMessage={handleForkMessage}
       onDownload={() =>
         downloadString(
           conversationToMarkdown(stored ?? null, messages),
