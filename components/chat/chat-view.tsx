@@ -15,6 +15,7 @@ import { MessageActions } from "@/components/chat/message-actions";
 import Image from "next/image";
 import { Composer, type SubmitPayload } from "@/components/chat/composer";
 import { ChoicePicker } from "@/components/chat/choice-picker";
+import { ConversationSearch } from "@/components/chat/conversation-search";
 import { ToolTrace } from "@/components/chat/tool-trace";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -78,6 +79,8 @@ export function ChatView({
     .reverse()
     .find((m) => m.role === "assistant")?.id;
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const conversationRef = useRef<HTMLDivElement>(null);
 
   // If the message being edited gets removed (e.g. truncated by regenerate),
   // exit edit mode.
@@ -86,6 +89,20 @@ export function ChatView({
       setEditingId(null);
     }
   }, [messages, editingId]);
+
+  // Cmd/Ctrl + F opens the in-conversation search instead of the browser's
+  // native Find. Only when there's actually a conversation to search.
+  useEffect(() => {
+    if (messages.length === 0) return;
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "f") {
+        e.preventDefault();
+        setSearchOpen(true);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [messages.length]);
 
   return (
     <div className="relative flex h-full w-full flex-col">
@@ -114,6 +131,12 @@ export function ChatView({
           </Tooltip>
         </div>
       )}
+      <ConversationSearch
+        open={searchOpen}
+        onClose={() => setSearchOpen(false)}
+        containerRef={conversationRef}
+      />
+      <div ref={conversationRef} className="flex flex-1 flex-col">
       <Conversation className="flex-1">
         <ConversationContent className="mx-auto w-full max-w-3xl gap-6 px-4 py-6">
           {messages.map((message) => {
@@ -238,6 +261,7 @@ export function ChatView({
         </ConversationContent>
         <ConversationScrollButton />
       </Conversation>
+      </div>
 
       <div className="mx-auto flex w-full max-w-3xl flex-col gap-3 px-4 pb-6">
         {pendingChoice && onChoiceSelect && onChoiceSkip && (
