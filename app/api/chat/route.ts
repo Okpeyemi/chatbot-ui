@@ -23,6 +23,8 @@ type ChatRequestBody = {
   system?: string;
   /** Optional persona prompt prepended to the assembled system prompt. */
   persona?: string;
+  /** Per-chat custom instructions appended after the base system prompt. */
+  instructions?: string;
   memories?: string[];
   mcpServers?: unknown;
 };
@@ -41,6 +43,7 @@ export async function POST(req: Request) {
     modelId = DEFAULT_MODEL_ID,
     system,
     persona,
+    instructions,
     memories,
     mcpServers: rawMcpServers,
   } = body;
@@ -162,11 +165,26 @@ export async function POST(req: Request) {
   const personaPrefix =
     persona && persona.trim() ? `${persona.trim()}\n\n` : "";
 
+  // Per-chat instructions append AFTER the base system (so the tool catalogue
+  // and persona stay intact) but BEFORE memories / MCP context.
+  const instructionsBlock =
+    instructions && instructions.trim()
+      ? [
+          "",
+          "CHAT INSTRUCTIONS — user-supplied guidance specific to this conversation. Treat as authoritative for tone and scope.",
+          instructions.trim(),
+        ].join("\n")
+      : "";
+
   try {
     const result = streamText({
       model,
       system:
-        personaPrefix + (system ?? baseSystem) + memoryContext + mcpContext,
+        personaPrefix +
+        (system ?? baseSystem) +
+        instructionsBlock +
+        memoryContext +
+        mcpContext,
       messages: modelMessages,
       tools: { ...builtinTools, ...mcpTools },
       stopWhen: stepCountIs(8),

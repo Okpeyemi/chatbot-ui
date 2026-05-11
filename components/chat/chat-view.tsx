@@ -16,6 +16,7 @@ import Image from "next/image";
 import { Composer, type SubmitPayload } from "@/components/chat/composer";
 import { ChoicePicker } from "@/components/chat/choice-picker";
 import { ConversationSearch } from "@/components/chat/conversation-search";
+import { ChatInstructionsDialog } from "@/components/chat/chat-instructions-dialog";
 import { ToolTrace } from "@/components/chat/tool-trace";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -26,7 +27,11 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { Pdf01Icon, Download01Icon } from "@hugeicons/core-free-icons";
+import {
+  Pdf01Icon,
+  Download01Icon,
+  Settings02Icon,
+} from "@hugeicons/core-free-icons";
 import type { ChatStatus, UIMessage } from "ai";
 
 export type PendingChoice = {
@@ -37,6 +42,7 @@ export type PendingChoice = {
 };
 
 type ChatViewProps = {
+  chatId: string;
   messages: UIMessage[];
   status: ChatStatus;
   modelId: string;
@@ -47,6 +53,7 @@ type ChatViewProps = {
   onEditMessage?: (messageId: string, newText: string) => void;
   onForkMessage?: (messageId: string) => void;
   onDownload?: () => void;
+  hasInstructions?: boolean;
   pendingChoice?: PendingChoice | null;
   onChoiceSelect?: (choice: string) => void;
   onChoiceSkip?: () => void;
@@ -60,6 +67,7 @@ function getMessageText(message: UIMessage): string {
 }
 
 export function ChatView({
+  chatId,
   messages,
   status,
   modelId,
@@ -70,6 +78,7 @@ export function ChatView({
   onEditMessage,
   onForkMessage,
   onDownload,
+  hasInstructions,
   pendingChoice,
   onChoiceSelect,
   onChoiceSkip,
@@ -80,6 +89,7 @@ export function ChatView({
     .find((m) => m.role === "assistant")?.id;
   const [editingId, setEditingId] = useState<string | null>(null);
   const [searchOpen, setSearchOpen] = useState(false);
+  const [instructionsOpen, setInstructionsOpen] = useState(false);
   const conversationRef = useRef<HTMLDivElement>(null);
 
   // If the message being edited gets removed (e.g. truncated by regenerate),
@@ -106,31 +116,67 @@ export function ChatView({
 
   return (
     <div className="relative flex h-full min-h-0 w-full flex-col overflow-hidden">
-      {onDownload && messages.length > 0 && (
-        <div className="pointer-events-none absolute right-4 top-3 z-10">
+      {messages.length > 0 && (
+        <div className="pointer-events-none absolute right-4 top-3 z-10 flex items-center gap-2">
           <Tooltip>
             <TooltipTrigger
               render={
                 <button
                   type="button"
-                  onClick={onDownload}
-                  aria-label="Download conversation as Markdown"
-                  className="pointer-events-auto flex size-8 items-center justify-center rounded-md border border-border/40 bg-background/80 text-muted-foreground backdrop-blur transition-colors hover:bg-background hover:text-foreground"
+                  onClick={() => setInstructionsOpen(true)}
+                  aria-label="Edit chat instructions"
+                  className="pointer-events-auto relative flex size-8 items-center justify-center rounded-md border border-border/40 bg-background/80 text-muted-foreground backdrop-blur transition-colors hover:bg-background hover:text-foreground"
                 >
                   <HugeiconsIcon
-                    icon={Download01Icon}
+                    icon={Settings02Icon}
                     size={16}
                     strokeWidth={1.5}
                   />
+                  {hasInstructions && (
+                    <span
+                      aria-hidden
+                      className="absolute right-1 top-1 size-1.5 rounded-full bg-[var(--accent-brand)]"
+                    />
+                  )}
                 </button>
               }
             />
             <TooltipContent side="left" sideOffset={6}>
-              Download as Markdown
+              {hasInstructions
+                ? "Chat instructions (active)"
+                : "Chat instructions"}
             </TooltipContent>
           </Tooltip>
+          {onDownload && (
+            <Tooltip>
+              <TooltipTrigger
+                render={
+                  <button
+                    type="button"
+                    onClick={onDownload}
+                    aria-label="Download conversation as Markdown"
+                    className="pointer-events-auto flex size-8 items-center justify-center rounded-md border border-border/40 bg-background/80 text-muted-foreground backdrop-blur transition-colors hover:bg-background hover:text-foreground"
+                  >
+                    <HugeiconsIcon
+                      icon={Download01Icon}
+                      size={16}
+                      strokeWidth={1.5}
+                    />
+                  </button>
+                }
+              />
+              <TooltipContent side="left" sideOffset={6}>
+                Download as Markdown
+              </TooltipContent>
+            </Tooltip>
+          )}
         </div>
       )}
+      <ChatInstructionsDialog
+        chatId={chatId}
+        open={instructionsOpen}
+        onOpenChange={setInstructionsOpen}
+      />
       <ConversationSearch
         open={searchOpen}
         onClose={() => setSearchOpen(false)}

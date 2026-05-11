@@ -13,6 +13,11 @@ export type StoredConversation = {
   messages: UIMessage[];
   /** Pinned conversations float to the top of the sidebar / recents page. */
   pinnedAt?: number;
+  /**
+   * Per-chat custom instructions appended to the base system prompt.
+   * Persona, base prompt, and memories still apply on top of this.
+   */
+  systemPrompt?: string;
 };
 
 type ConversationsState = {
@@ -27,6 +32,7 @@ type ConversationsState = {
   renameConversation: (id: string, title: string) => void;
   deleteConversation: (id: string) => void;
   togglePin: (id: string) => void;
+  setSystemPrompt: (id: string, systemPrompt: string | undefined) => void;
 };
 
 const noopStorage = {
@@ -98,6 +104,21 @@ export const useConversationsStore = create<ConversationsState>()(
             [id]: {
               ...existing,
               pinnedAt: existing.pinnedAt ? undefined : Date.now(),
+            },
+          },
+        });
+      },
+      setSystemPrompt: (id, systemPrompt) => {
+        const existing = get().conversations[id];
+        if (!existing) return;
+        const trimmed = systemPrompt?.trim();
+        set({
+          conversations: {
+            ...get().conversations,
+            [id]: {
+              ...existing,
+              systemPrompt: trimmed ? trimmed : undefined,
+              updatedAt: Date.now(),
             },
           },
         });

@@ -150,7 +150,7 @@ export function ChatContainer({ initialChatId }: ChatContainerProps) {
     //    the edited user message, regenerate() (no messageId) keeps the
     //    truncated state and just makes a request.
     try {
-      await regenerate({ body: { modelId, memories: memoryTexts, mcpServers: enabledMcpServers, persona: activePersonaPrompt } });
+      await regenerate({ body: { modelId, memories: memoryTexts, mcpServers: enabledMcpServers, persona: activePersonaPrompt, instructions: stored?.systemPrompt } });
     } catch (err) {
       toast.error("Couldn’t regenerate", {
         description: err instanceof Error ? err.message : String(err),
@@ -231,7 +231,7 @@ export function ChatContainer({ initialChatId }: ChatContainerProps) {
     // history and the assistant can react to it.
     sendMessage(
       { role: "user", parts: [{ type: "text", text: choice }] },
-      { body: { modelId, memories: memoryTexts, mcpServers: enabledMcpServers, persona: activePersonaPrompt } }
+      { body: { modelId, memories: memoryTexts, mcpServers: enabledMcpServers, persona: activePersonaPrompt, instructions: stored?.systemPrompt } }
     );
   };
 
@@ -306,7 +306,7 @@ export function ChatContainer({ initialChatId }: ChatContainerProps) {
       title: stored?.title ?? titleFromMessage ?? "New chat",
     });
 
-    sendMessage({ role: "user", parts: userParts }, { body: { modelId, memories: memoryTexts, mcpServers: enabledMcpServers, persona: activePersonaPrompt } });
+    sendMessage({ role: "user", parts: userParts }, { body: { modelId, memories: memoryTexts, mcpServers: enabledMcpServers, persona: activePersonaPrompt, instructions: stored?.systemPrompt } });
   };
 
   // Auto-derive the title from the first assistant exchange if the user
@@ -355,13 +355,14 @@ export function ChatContainer({ initialChatId }: ChatContainerProps) {
 
   return (
     <ChatView
+      chatId={chatId}
       messages={messages}
       status={status}
       modelId={modelId}
       onModelChange={setModelId}
       onSubmit={handleSubmit}
       onStop={stop}
-      onRegenerate={() => regenerate({ body: { modelId, memories: memoryTexts, mcpServers: enabledMcpServers, persona: activePersonaPrompt } })}
+      onRegenerate={() => regenerate({ body: { modelId, memories: memoryTexts, mcpServers: enabledMcpServers, persona: activePersonaPrompt, instructions: stored?.systemPrompt } })}
       onEditMessage={handleEditMessage}
       onForkMessage={handleForkMessage}
       onDownload={() =>
@@ -370,6 +371,7 @@ export function ChatContainer({ initialChatId }: ChatContainerProps) {
           filenameFor(stored?.title)
         )
       }
+      hasInstructions={!!stored?.systemPrompt}
       pendingChoice={pendingChoice}
       onChoiceSelect={handleChoiceSelect}
       onChoiceSkip={handleChoiceSkip}
